@@ -1,0 +1,135 @@
+#!/usr/bin/env python
+
+
+# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+#
+# This program and the accompanying materials are made available under the
+# terms of the GNU Public License v3.0.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+import capsid
+
+
+def configure_(args):
+    capsid.configure.main(args)
+
+def gbloader_(args):
+    capsid.gbloader.main(args)
+
+def fasta_(args):
+    capsid.fasta.main(args)
+
+def subtraction_(args):
+    capsid.subtraction.main(args)
+
+def statistics_(args):
+    capsid.statistics.main(args)
+
+
+if __name__ == '__main__':
+    import argparse
+    import getpass
+
+    ### capsid Pipeline #####################################################
+    parser = argparse.ArgumentParser(description='CaPSID Pipeline')
+    parser.add_argument('--version', action="version", version='capsid {0}'.format(capsid.__version__), help='show version and exit')
+    subparsers = parser.add_subparsers(title='Actions')
+
+    ### Configure #################################################################
+    configure_parser = subparsers.add_parser('configure',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='CaPSID Configuration\n\nExample\n\tcapsid configure',
+                                         help='Configure capsid')
+    # MongoDB settings
+    mongo = configure_parser.add_argument_group('MongoDB Settings', 'Values set through the commandline will not be prompted for during setup')
+    mongo.add_argument('--host', metavar='h', default=None, help='MongoDB Server address')
+    mongo.add_argument('--port', metavar='p', default=None, help='Port used to connect to MongoDB')
+    mongo.add_argument('--database', metavar='db', default=None, help='Database name used for capsid')
+    mongo.add_argument('--username', metavar='user', default=None, help='Set Username if needed')
+    mongo.add_argument('--password', metavar='pass', default=None, help='Set Password')
+    # Logging Options
+    verbose_debug = configure_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    configure_parser.set_defaults(func=configure_)
+
+    ### GenBank Loader ########################################################
+    gbloader_parser = subparsers.add_parser('gbloader',
+                                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                                           description='GenBank Loader\n\nExample:\n\tcapsid gbloader gb1.gbff gb2.gbff',
+                                           help='GenBank Loader')
+    gbloader_parser.add_argument('files', metavar='F', nargs='+', help='List of GenBank files')
+    ## Logging Options
+    verbose_debug = gbloader_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to WARNING')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    gbloader_parser.set_defaults(func=gbloader_)
+
+    ### Fasta Generator #######################################################
+    fasta_parser = subparsers.add_parser('fasta',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Generate Fasta File\n\nExample\n\tcapsid fasta',
+                                         help='Fasta Generator')
+    # Query options
+    query = fasta_parser.add_argument_group('Query Options')
+    query.add_argument('--organism', nargs='+', metavar='O', default=None, help='List of organisms to look up')
+    query.add_argument('--taxonomy', nargs='+', metavar='T', default=None, help='List of taxonomy descriptors')
+    query.add_argument('--output', metavar='F', default='genomes.fa', help='Path of the created fasta file [./genomes.fa]')
+    # Logging Options
+    verbose_debug = fasta_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+
+    # AutoRun
+    fasta_parser.set_defaults(func=fasta_)
+
+    ### BAM Subtraction #######################################################
+    subtract_parser = subparsers.add_parser('subtraction',
+                                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                                           description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
+                                           help='BAM Subtraction')
+    subtract_parser.add_argument('xeno', help='Xeno BAM File')
+    subtract_parser.add_argument('human', help='Human BAM File')
+    subtract_parser.add_argument('align', help='Alignment Name from Database')
+    # Lookup Table
+    lookup = subtract_parser.add_argument_group('Options for the lookup file.', 'Format: --lookup_option xeno_option human_option')
+    lookup.add_argument('--lookup_method', choices=['default', 'fasta', 'custom', 'None'], nargs=2, default=['default', 'default'], metavar='M', help='Methods used to map BAM Genome Ids to the DB {[default], fasta, custom}')
+    lookup.add_argument('--lookup_file', metavar='F', nargs=2, default=[None, None], help='Files needed for Genome ID mapping')
+    lookup.add_argument('--lookup_column', choices=['accession','gi', 'None'], nargs=2, default=['gi', 'gi'], metavar='C', help='Database Column to be compare for Genome ID mapping')
+    lookup.add_argument('--lookup_separator', choices=[',',';',':','\t', 'None'], nargs=2, default=[';', ';'], metavar='S', help='Separator values - escape using a backslash(\\)')
+    # Unmapped
+    fetch = subtract_parser.add_mutually_exclusive_group()
+    fetch.add_argument('--fetch_unmapped', action='store_true', default=False, help='Flag to save unmapped reads')
+    fetch.add_argument('--fetch_only_unmapped', action='store_true', default=False, help='Flag to save ONLY unmapped reads')
+    # Logging Options
+    verbose_debug = subtract_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    subtract_parser.set_defaults(func=subtraction_)
+
+    ### Statistics  ###########################################################
+    stats_parser = subparsers.add_parser('statistics',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Statistics\n\nExample\n\tcapsid statistics proj_label_one proj_label_two',
+                                         help='Statistics')
+    # Logging Options
+    verbose_debug = stats_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # Project Select
+    project = stats_parser.add_argument_group('Project Select', 'Select which project(s) to update by passing the project label(s)')
+    project.add_argument('projects', nargs='+', metavar="P", help="Project Label from Database")
+    # AutoRun
+    stats_parser.set_defaults(func=statistics_)
+
+
+    ### Run ###
+    args = parser.parse_args()
+    args.logging = capsid.log(args)
+    args.func(args)
