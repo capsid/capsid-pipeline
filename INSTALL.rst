@@ -4,6 +4,7 @@ CaPSID's pipline is available as a package in the `Python Package Index <http://
 
 Dependencies
 ------------
+
 In order to run CaPSID's pipeline, you will need to install the following dependencies:
 
 - Python_ - Python 2.6+ supported. No support for Python 3 at the moment.
