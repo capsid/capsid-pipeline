@@ -1,3 +1,4 @@
 dist
 capsid.egg-info
 *.pyc
+build

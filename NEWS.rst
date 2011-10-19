@@ -2,7 +2,7 @@ News
 ====
 
 1.0.1
----
+-----
 
 *Release date: 19 Oct 2011*
 
