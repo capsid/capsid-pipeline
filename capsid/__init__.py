@@ -28,9 +28,14 @@ def connect(args):
     address = config.get('MongoDB', 'host')
     port = int(config.get('MongoDB', 'port'))
     db = config.get('MongoDB', 'database')
+    username = config.get('MongoDB', 'username')
+    password = config.get('MongoDB', 'password')
 
     connection = pymongo.Connection(address, port)
+    admindb = connection.admin
+    admindb.authenticate(username, password)
     logger.debug('Connecting to {0}:{1}'.format(address, port))
+
     return connection[db]
 
 
