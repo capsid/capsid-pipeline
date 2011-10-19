@@ -1,12 +1,12 @@
 News
 ====
 
-1.1
+1.0.1
 ---
 
-*Release date: UNRELEASED*
+*Release date: 19 Oct 2011*
 
-*
+* Added support for MongoDB authentication
 
 1.0
 ---
