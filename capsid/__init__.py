@@ -28,9 +28,14 @@ def connect(args):
     address = config.get('MongoDB', 'host')
     port = int(config.get('MongoDB', 'port'))
     db = config.get('MongoDB', 'database')
+    username = config.get('MongoDB', 'username')
+    password = config.get('MongoDB', 'password')
 
     connection = pymongo.Connection(address, port)
+    admindb = connection.admin
+    admindb.authenticate(username, password)
     logger.debug('Connecting to {0}:{1}'.format(address, port))
+
     return connection[db]
 
 
@@ -94,4 +99,4 @@ def get_version(v):
             version = "{0}.dev{1}".format(version, v[5])
     return version
 
-__version__ = get_version((1, 0, 0, "f", 0, 0))
+__version__ = get_version((1, 0, 1, "f", 0, 0))
