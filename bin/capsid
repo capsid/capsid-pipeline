@@ -106,6 +106,9 @@ if __name__ == '__main__':
     fetch = subtract_parser.add_mutually_exclusive_group()
     fetch.add_argument('--fetch_unmapped', action='store_true', default=False, help='Flag to save unmapped reads')
     fetch.add_argument('--fetch_only_unmapped', action='store_true', default=False, help='Flag to save ONLY unmapped reads')
+    # single end or pair-end reads   
+    alignment_type = subtract_parser.add_mutually_exclusive_group()    
+    alignment_type.add_argument('--pe', action='store_true', default=False, help='Treat reads as pair-end')
     # Logging Options
     verbose_debug = subtract_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
