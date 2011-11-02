@@ -1,5 +1,6 @@
 CaPSID Pipeline
 =================
+
 CaPSID's pipline is available as a package in the `Python Package Index <http://pypi.python.org/pypi/capsid/>`_.
 
 Dependencies
