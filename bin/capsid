@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     ### capsid Pipeline #####################################################
     parser = argparse.ArgumentParser(description='CaPSID Pipeline')
-    parser.add_argument('--version', action="version", version='capsid {0}'.format(capsid.__version__), help='show version and exit')
+    parser.add_argument('--version', action="version", version='CaPSID {0}'.format(capsid.__version__), help='show version and exit')
     subparsers = parser.add_subparsers(title='Actions')
 
     ### Configure #################################################################
