@@ -216,8 +216,8 @@ def parse_human(f, mapped_ids, meta, lookup, fetch, alignment):
 
     for align in bamfile.fetch(until_eof=True):
         fetch_unmapped = fetch['unmapped'] and align.is_unmapped and align.qname not in mapped_ids
-        fetch_mapped_se = fetch['mapped'] and alignment['se'] and not align.is_unmapped and align.qname in mapped_ids
-        fetch_mapped_pe = fetch['mapped'] and alignment['pe'] and not align.is_unmapped and align.qname in mapped_ids and align.is_proper_pair and align.isize > 0
+        fetch_mapped_se = alignment['se'] and not align.is_unmapped and fetch['mapped'] and align.qname in mapped_ids
+        fetch_mapped_pe = alignment['pe'] and not align.is_unmapped and fetch['mapped'] and align.is_proper_pair and align.isize > 0 and align.qname in mapped_ids
         fetch_mapped = fetch_mapped_se or fetch_mapped_pe
 
         # If the alignemnt is unmapped and the readId is not in the xeno mapped ids save
@@ -329,14 +329,14 @@ def main(args):
 
     # Alignment type
     alignment = {
-                'se': not args.pe
-            ,   'pe': args.pe
+                'se': not args.pair_end
+            ,   'pe': args.pair_end
             }
 
     # Fetch Mapped or Unmapped
     fetch = {
-            'mapped': not args.fetch_only_unmapped
-        ,   'unmapped': args.fetch_unmapped or args.fetch_only_unmapped
+            'mapped': not args.only_unmapped
+        ,   'unmapped': args.unmapped or args.only_unmapped
         }
 
     # Create list of reads(mapped/unmapped) from xeno file
