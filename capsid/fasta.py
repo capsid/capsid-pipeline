@@ -36,7 +36,7 @@ def main(args):
     logger.info('Output genomes in Fasta format...')
     logger.debug('Writting to {0}...'.format(args.output))
     for genome in genomes:
-        out.write('>{gi}|{accession} {name}\n'.format(**genome))
+        out.write('>gi|{gi}|ref|{accession}.{version}| {name}\n'.format(**genome))
         seq = db.sequence.find_one({"_id":genome['seqId']}, {"_id":0, "seq":1})
         if seq:
             s = re.sub(r'(\w{80})', r'\1\n', seq['seq'])

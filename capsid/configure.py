@@ -52,6 +52,7 @@ def ensure_indexes():
     db.alignment.ensure_index('refStart')
     db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
 
     # User
     logger.debug('Adding User Index')

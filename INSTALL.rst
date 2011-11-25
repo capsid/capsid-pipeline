@@ -1,6 +1,5 @@
 CaPSID Pipeline
 =================
-
 CaPSID's pipline is available as a package in the `Python Package Index <http://pypi.python.org/pypi/capsid/>`_.
 
 Dependencies
@@ -21,13 +20,13 @@ In order to run CaPSID's pipeline, you will need to install the following depend
 
 For more detailed instructions on how to install the dependencies, pick your operating system from this list:
 
-- [[Installing capsid dependencies on Ubuntu|Installing on Ubuntu]]
+- `Installing capsid dependencies on Ubuntu <https://github.com/capsid/capsid/wiki/Installing-on-Ubuntu>`_
 
 Installing with Pip
 -------------------
 Pip_ is the preferred installation method on platforms other than Windows::
 
-    $ sudo pip install capsid
+    $ pip install capsid
 
 To get a specific version of capsid::
 
@@ -35,7 +34,7 @@ To get a specific version of capsid::
 
 To upgrade using pip::
 
-    $ pip install --upgrade capsid
+    $ pip install capsid -U
 
 .. _Pip: http://www.pip-installer.org/en/latest/index.html
 
@@ -51,12 +50,9 @@ To upgrade do::
 
 Building from sources
 ---------------------
-If you'd rather install directly from the source (i.e. to stay on the bleeding edge), check out the latest source from github::
+If you'd rather install directly from the source, check out the latest source from github::
 
     $ git clone git://github.com/capsid/capsid-pipeline.git capsid
     $ cd capsid
     $ python setup.py install --user   # installs to your home directory -- requires Python >= 2.6
-    or
-    $ python setup.py build
-    $ sudo python setup.py install --prefix=/usr/local   # installs to /usr/local
 

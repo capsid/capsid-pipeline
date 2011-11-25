@@ -1,6 +1,13 @@
 News
 ====
 
+1.1
+---
+
+*Release date: 25 Nov 2011*
+
+* Adds support for pair-end reads
+
 1.0.1
 -----
 
