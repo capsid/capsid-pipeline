@@ -20,7 +20,7 @@ In order to run CaPSID's pipeline, you will need to install the following depend
 
 For more detailed instructions on how to install the dependencies, pick your operating system from this list:
 
-- [[Installing capsid dependencies on Ubuntu|Installing on Ubuntu]]
+- `Installing capsid dependencies on Ubuntu <https://github.com/capsid/capsid/wiki/Installing-on-Ubuntu>`_
 
 Installing with Pip
 -------------------
