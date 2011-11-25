@@ -86,7 +86,7 @@ def _lookup(header_from_file, genomes, method):
             if r[0]:
                 g = db.genome.find_one({'gi': r[0]}, {'_id': 1})['_id']
                 break
-            else if r[2]:
+            elif r[2]:
                 g = db.genome.find_one({'accession': r[2]}, {'_id': 1})['_id']
                 break
             else:
