@@ -42,7 +42,7 @@ if __name__ == '__main__':
     configure_parser = subparsers.add_parser('configure',
                                          formatter_class=argparse.RawDescriptionHelpFormatter,
                                          description='CaPSID Configuration\n\nExample\n\tcapsid configure',
-                                         help='Configure capsid')
+                                         help='Configure CaPSID')
     # MongoDB settings
     mongo = configure_parser.add_argument_group('MongoDB Settings', 'Values set through the commandline will not be prompted for during setup')
     mongo.add_argument('--host', metavar='h', default=None, help='MongoDB Server address')
