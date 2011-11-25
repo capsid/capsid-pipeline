@@ -71,23 +71,33 @@ def _lookup_custom(f, sep, col):
     return genomes
 
 
-def _lookup(from_file, genomes, method):
+def _lookup(header_from_file, genomes, method):
     '''Take the input for the header of the BAM return to ObjectId of the Genome in the Database'''
 
+    g = ''
+
     if method == 'default':
-        # Already using ObjectIds
-        g = ObjectId(from_file)
+        g = ObjectId(header_from_file)
     elif method == 'fasta':
-        # TODO parse out gi from header
-        gi = re.search('^>gi:(.+?)\|', from_file)
-        g = db.genome.find_one({'gi': gi}, {'_id': 1})['_id']
+        # Parse genome header looking ofr GI or Accession
+        format = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
+        result = format.findall(header_from_file)
+        for r in result:
+            if r[0]:
+                g = db.genome.find_one({'gi': r[0]}, {'_id': 1})['_id']
+                break
+            else if r[2]:
+                g = db.genome.find_one({'accession': r[2]}, {'_id': 1})['_id']
+                break
+            else:
+                logger.error('Could not find Gi or Accession from genome header. Please make sure your header contains the standard formats for either GenInfo integrated database (gi|integer) or RefSeq (ref|accession|name).')
     elif method == 'custom':
         # If the genomeId in the bam file cannot be mapped to the db, assume it is from a junction and
         # assign gId = None. Later any reads that map to a junction and a virus will have isHuman:1 for the vg,
         # but the hg will not be saved
         # Replace id in file with id in MongoDB
         try:
-            g = genomes[from_file]
+            g = genomes[header_from_file]
         except KeyError:
             g = None
 
