@@ -17,7 +17,7 @@ def configure_(args):
     capsid.configure.main(args)
 
 def gbloader_(args):
-    capsid.gbloader.main(args)
+    capsid.gbloaderfs.main(args)
 
 def fasta_(args):
     capsid.fasta.main(args)
