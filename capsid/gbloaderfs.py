@@ -15,11 +15,22 @@ from itertools import imap, ifilter, ifilterfalse, repeat
 from Bio import SeqIO
 from bson import ObjectId
 import gridfs
-import multiprocessing
 
 import capsid
 
-logger = None
+db, logger = None, None
+
+
+def insert_records(record):
+    '''Inserts Genome, Features and Sequence into MongoDB'''
+
+    print record
+
+
+def extract_features(record, genome):
+    '''Returns a list of features and feature Ids belonging to the genome'''
+
+    return ['a', 'b', 'c'], [1, 2, 3]
 
 
 def extract_genome(record):
@@ -39,13 +50,22 @@ def extract_genome(record):
 
     return genome
 
+
+def is_human(record):
+    '''Checks if the genome is human'''
+
+    return record.annotations['organism'].capitalize() is 'Homo sapiens'
+
+
 def exists(record, genomes):
     '''Checks if the record's GI exists in the list of GIs from the database'''
+
     return int(record.annotations['gi']) in genomes
 
 
 def parse_record(record, genomes):
     '''Pull out genomic information from the GenBank file'''
+
     if exists(record, genomes):
         return None
 
@@ -53,27 +73,30 @@ def parse_record(record, genomes):
 
     if not is_human(record):
         genome['seqId'] = ObjectId()
-        features, genome['features'] = extract_features(record)
+        features, genome['features'] = extract_features(record, genome)
+        sequence = ({'_id': genome['seqId'], 'seq': record.seq.tostring()})
 
-    return record.annotations['gi']
+    return genome, features, sequence
 
 
 def get_db_genomes():
     '''Get a list of genomes currently in the db, uses GI to prevent duplication.'''
+
     logger.info('Getting list of Genomes from the Database')
     return set(g['gi'] for g in db.genome.find({}, {"_id":0, "gi":1}))
 
 
 def parse_gb_file(f):
+    '''Use SeqIO to extract genome data from GenBank files'''
     logger.info('Scanning GenBank File {0}'.format(f))
 
-    try:
-        logger.debug('Trying to parse {0} with SeqIO'.format(f))
-        with open(f, 'rU') as fh:
-            dbg = get_db_genomes()
-            return filter(None, (parse_record(r, dbg) for r in SeqIO.parse(fh, 'gb')))
-    except IOError as (errno, strerror):
-        logger.warning("I/O Error({0}): {1} {2}. Skipping...".format(errno, strerror, f))
+    with open(f, 'rU') as fh:
+        dbg = get_db_genomes()
+        records = (parse_record(r, dbg) for r in SeqIO.parse(fh, 'gb'))
+        # parse_record will return None if the genome is already in the Database,
+        # and using filter(None, records) will put the entire thing in memory.
+        # This way it only deals with 1 record at a time and skips the 'None's.
+        [insert_records(r) for r in records if r]
 
 
 def main(args):
@@ -82,17 +105,14 @@ def main(args):
     python gloader.py g1.gbff gb2.gbff',
     '''
 
-    global logger
+    global db, logger
 
     logger = args.logging.getLogger(__name__)
     db = capsid.connect(args)
     gfs = gridfs.GridFS(db, 'sequence')
 
-    records = imap(parse_gb_file, args.files)
+    map(parse_gb_file, args.files)
 
-    for recs in records:
-        for r in recs:
-            pass
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid gbloader -h\n\tor\n\t$ /path/to/capsid/bin/capsid gbloader -h'
