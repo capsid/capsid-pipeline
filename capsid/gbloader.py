@@ -166,10 +166,6 @@ def parse_gb_file(f):
         # Using filter(None, records) will put the entire thing in memory,
         # this way it only deals with 1 record at a time and skips the 'None's.
         [insert_records(r) for r in records if r]
-        #import multiprocessing
-        #pool_size = multiprocessing.cpu_count()
-        #pool = multiprocessing.Pool(pool_size)
-        #pool.map(insert_records, records)
 
 
 def summary():
