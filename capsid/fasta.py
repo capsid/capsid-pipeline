@@ -13,14 +13,17 @@
 
 import re
 
+import gridfs
+
 import capsid
 
 
 def main(args):
     '''Fasta Output of Genomes in the Database'''
-
+    print args
     logger = args.logging.getLogger(__name__)
     db = capsid.connect(args)
+    gfs = gridfs.GridFS(db, 'sequence')
 
     # By default the query will not include Human
     query = {"organism": {'$ne': "Homo sapiens"}}
@@ -29,6 +32,10 @@ def main(args):
         query['organism'] = {'$in': args.organism}
     if args.taxonomy:
         query['taxonomy'] = {'$in': args.taxonomy}
+    if args.ref:
+        query['accession'] = args.ref
+    if args.gi:
+        query['gi'] = int(args.gi)
 
     genomes = db.genome.find(query)
     logger.info('Found {0} genomes'.format(genomes.count()))
@@ -37,12 +44,10 @@ def main(args):
     logger.debug('Writting to {0}...'.format(args.output))
     for genome in genomes:
         out.write('>gi|{gi}|ref|{accession}.{version}| {name}\n'.format(**genome))
-        seq = db.sequence.find_one({"_id":genome['seqId']}, {"_id":0, "seq":1})
-        if seq:
-            s = re.sub(r'(\w{80})', r'\1\n', seq['seq'])
-            out.write('{0}\n'.format(s))
+        for line in gfs.get(genome['gi']):
+            out.write('{0}\n'.format(line))
 
-    logger.info('Done.')
+    logger.info('{0} created.'.format(args.output))
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid fasta -h\n\tor\n\t$ /path/to/capsid/bin/capsid fasta -h'

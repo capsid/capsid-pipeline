@@ -30,14 +30,14 @@ def insert_records(record):
 
     db.genome.insert(record.genome)
     [db.feature.insert(feature) for feature in record.features]
-    gfs.put(record.sequence,_id=record.genome['gi'],chunkSize=80)
+    if record.sequence:
+        gfs.put(record.sequence,_id=record.genome['gi'],chunkSize=80)
 
 
 def extract_sequence(record,  genome):
     '''Returns a dictionary of the genome sequence'''
     global s_it
     s_it.next()
-
     return record.seq.tostring()
 
 
@@ -120,10 +120,10 @@ def extract_genome(record):
     return genome
 
 
-def is_human(record):
-    '''Checks if the genome is human'''
+def unknown_seq(record):
+    '''Filters out unknown sequences that are all 'N' so they are not saved'''
 
-    return record.annotations['organism'].capitalize() is 'Homo sapiens'
+    return 'N' in record.seq
 
 
 def exists(record, genomes):
@@ -141,9 +141,9 @@ def parse_record(record, dbgenomes):
         return None
 
     genome = extract_genome(record)
-
-    if not is_human(record):
-        features = extract_features(record, genome)
+    features = extract_features(record, genome)
+    sequence = None
+    if not unknown_seq(record):
         sequence = extract_sequence(record, genome)
 
     return Record(genome, features, sequence)
@@ -166,10 +166,12 @@ def parse_gb_file(f):
         # Using filter(None, records) will put the entire thing in memory,
         # this way it only deals with 1 record at a time and skips the 'None's.
         [insert_records(r) for r in records if r]
+        summary()
 
 
 def summary():
     '''Logging summary of added records'''
+    global r_it, g_it, f_it, s_it
 
     # Counter starts at 0, so >it = count(); >print it.next(); >0
     # Using *_it.next here sets it to the correct value for printing.
@@ -183,6 +185,9 @@ def summary():
             logger.info('{0} Sequences added successfully!'.format(s_add))
     else:
         logger.info('No Genomes found, make sure this is a GenBank file.')
+
+    # Reset the counter for the next file
+    r_it, g_it, f_it, s_it = count(), count(), count(), count()
 
 
 def main(args):
@@ -198,7 +203,6 @@ def main(args):
     gfs = gridfs.GridFS(db, 'sequence')
 
     map(parse_gb_file, args.files)
-    summary()
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid gbloader -h\n\tor\n\t$ /path/to/capsid/bin/capsid gbloader -h'
