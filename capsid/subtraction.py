@@ -18,7 +18,7 @@ from bson import ObjectId, errors
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
 
-import capsid
+import capsid,os
 
 
 db, logger = None, None
@@ -74,17 +74,39 @@ def _lookup_custom(f, sep, col):
 def _lookup(header_from_file, genomes, method):
     '''Take the input for the header of the BAM return to ObjectId of the Genome in the Database'''
 
+    # put the latest code for below
+    # this below is version 1.0  
+    #if method == 'default':
+    #    # Already using ObjectIds
+    #    g = ObjectId(from_file)
+    #elif method == 'fasta':
+    #    # TODO parse out gi from header
+    #    gi = re.search('^>gi|(.+?)\|', from_file)
+    #    g = db.genome.find_one({'gi': gi}, {'_id': 1})['_id']
+    #elif method == 'custom':
+    #    # If the genomeId in the bam file cannot be mapped to the db, assume it is from a junction and
+    #    # assign gId = None. Later any reads that map to a junction and a virus will have isHuman:1 for the vg,
+    #    # but the hg will not be saved
+    #    # Replace id in file with id in MongoDB
+    #    try:
+    #        g = genomes[from_file]
+    #    except KeyError:
+    #        g = None
+    #
+    #return g
+
+    # from version 1.2a1 
     g = ''
 
     if method == 'default':
         g = ObjectId(header_from_file)
     elif method == 'fasta':
-        # Parse genome header looking ofr GI or Accession
+        # Parse genome header looking for GI or Accession
         format = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
         result = format.findall(header_from_file)
-        for r in result:
+        for r in result:           
             if r[0]:
-                g = db.genome.find_one({'gi': r[0]}, {'_id': 1})['_id']
+                g = db.genome.find_one({'gi': int(r[0])}, {'_id': 1})['_id']
                 break
             elif r[2]:
                 g = db.genome.find_one({'accession': r[2]}, {'_id': 1})['_id']
@@ -102,6 +124,8 @@ def _lookup(header_from_file, genomes, method):
             g = None
 
     return g
+
+
 
 
 def _find_gene_hits(mapped):
@@ -155,7 +179,7 @@ def meta_data(align):
     return meta
 
 
-def _mapped(align, genome, meta, alignment, human=False):
+def _mapped(align, genome, meta, alignment, pe_to_se=False, human=False):
     '''Build the mapped hit document'''
 
     fsum = math.fsum
@@ -164,15 +188,15 @@ def _mapped(align, genome, meta, alignment, human=False):
         mismatch = len(re.findall("\D", align.opt('MD')))
     except KeyError:
         mismatch = align.alen
-    refend = int(align.aend) if alignment['se'] else int(align.pos + align.isize) + 1
-    align_length = align.alen if alignment['se'] else align.isize
-    mapped = {
+    #IB single end mode
+    if alignment['se'] or pe_to_se:
+        mapped = {
          "_id": ObjectId()
        , "readId": align.qname
        , "refStrand": -1 if align.is_reverse else 1
        , "refStart": align.pos + 1 # pysam is 0-based index
-       , "refEnd": refend
-       , "alignLength": align_length
+       , "refEnd": int(align.aend)
+       , "alignLength": align.alen  # Length of alignment, using cigar information
        , "readLength": align.rlen  # Total Length of the read
        , "mapq": int(align.mapq)
        , "minQual": min(scores)
@@ -186,6 +210,30 @@ def _mapped(align, genome, meta, alignment, human=False):
        , "sample": meta['sample']['name']
        , "alignment": meta['alignment']['name']
      }
+    #IB pair end mode
+    elif alignment['pe'] and not pe_to_se:
+         mapped = {
+            "_id": ObjectId()
+          , "readId": align.qname
+          , "refStrand": -1 if align.is_reverse else 1
+          , "refStart": align.pos + 1 # pysam is 0-based index
+          , "refEnd": int(align.pos + align.isize) + 1
+          , "alignLength": align.isize # Length of alignment, using cigar information
+          , "readLength": align.rlen  # Total Length of the read
+          , "mapq": int(align.mapq)
+          , "minQual": min(scores)
+          , "avgQual": fsum(scores) / len(scores)
+          , "miscalls": align.qqual.count('.')
+          , "mismatch": mismatch
+          , "sequencingType": meta['alignment']['type']
+          , "platform": meta['alignment']['platform']
+          , "project": meta['sample']['project']
+          , "genomeId": genome
+          , "sample": meta['sample']['name']
+          , "alignment": meta['alignment']['name']
+        }
+
+
 
     if human:
         mapped['isHuman'] = 1
@@ -225,31 +273,71 @@ def parse_human(f, mapped_ids, meta, lookup, fetch, alignment):
     bamfile = pysam.Samfile(f, 'rb')
 
     for align in bamfile.fetch(until_eof=True):
-        fetch_unmapped = fetch['unmapped'] and align.is_unmapped and align.qname not in mapped_ids
-        fetch_mapped_se = alignment['se'] and not align.is_unmapped and fetch['mapped'] and align.qname in mapped_ids
-        fetch_mapped_pe = alignment['pe'] and not align.is_unmapped and fetch['mapped'] and align.is_proper_pair and align.isize > 0 and align.qname in mapped_ids
-        fetch_mapped = fetch_mapped_se or fetch_mapped_pe
-
         # If the alignemnt is unmapped and the readId is not in the xeno mapped ids save
-        if fetch_unmapped:
+        if fetch['unmapped'] and align.is_unmapped and align.qname not in mapped_ids:
             summary['human_unmapped'] += 1
             unmapped.append(_unmapped(align, meta))
             # When it gets too big insert and clear
             if len(unmapped) >= 100:
                 db.unmapped.insert(unmapped)
                 unmapped = []
-        elif fetch_mapped:
+        #IB output unmapped reads in fastq format 
+        elif fetch['fastq'] and align.is_unmapped and align.qname not in mapped_ids:
+            # This will only output a fastq file 
+            # Total mapped alignments found in Human BAM file: will be 0
+            # since the program will skip the code below in elif fetch['mapped'] ...
+            summary['human_unmapped'] += 1
+            read_namea = "@" + str(align.qname) 
+            #read_nameb = "+" + str(align.qname)   
+            read_nameb = "+"
+            read_seq  = str(align.seq)
+            read_qual = str(align.qqual)
+            file_out.write(read_namea + '\n')
+            file_out.write(read_seq + '\n')
+            file_out.write(read_nameb + '\n')
+            file_out.write(read_qual + '\n')    
+        #IB pair end mode case.1 aligns as proper pair (both reads)
+        elif fetch['mapped'] and alignment['pe'] and not align.is_unmapped and align.qname in mapped_ids and align.is_proper_pair and align.isize > 0:
             # Returns the genome Id from the DB - will return None if a Junction
+            pe_to_se=False 
             genome = _lookup(bamfile.getrname(align.tid), lookup['human_genomes'], lookup['human_method'])
             intersecting_mapped_ids[align.qname] = 1
             # Will append intersecting human genome hits, unless from junction
             if genome:
                 summary['human_mapped'] += 1
-                mapped.append(_mapped(align, genome, meta, alignment, True))
+                mapped.append(_mapped(align, genome, meta, alignment, pe_to_se, True))
                 # When it gets too big insert and clear
                 if len(mapped) >= 100:
                     db.mapped.insert(mapped)
                     mapped = []
+        #IB pair end mode case.2 aligns but not as proper pair "singleton case" 
+        elif fetch['mapped'] and alignment['pe'] and not align.is_unmapped and align.qname in mapped_ids and not align.is_proper_pair:
+                pe_to_se=True   
+                genome = _lookup(bamfile.getrname(align.tid), lookup['human_genomes'], lookup['human_method'])
+                intersecting_mapped_ids[align.qname] = 1
+                if genome:
+                    summary['human_mapped'] += 1
+                    mapped.append(_mapped(align, genome, meta, alignment, pe_to_se, True))
+                    # When it gets too big insert and clear
+                    if len(mapped) >= 100:
+                        db.mapped.insert(mapped)
+                        mapped = []
+        elif fetch['mapped'] and alignment['se'] and not align.is_unmapped and align.qname in mapped_ids:
+            # Returns the genome Id from the DB - will return None if a Junction
+            pe_to_se=True
+            genome = _lookup(bamfile.getrname(align.tid), lookup['human_genomes'], lookup['human_method'])
+            intersecting_mapped_ids[align.qname] = 1
+            # Will append intersecting human genome hits, unless from junction
+            if genome:
+                summary['human_mapped'] += 1
+                mapped.append(_mapped(align, genome, meta, alignment, pe_to_se, True))
+                # When it gets too big insert and clear
+                if len(mapped) >= 100:
+                    db.mapped.insert(mapped)
+                    mapped = []
+   
+
+      
 
     bamfile.close()
 
@@ -283,16 +371,50 @@ def parse_xeno(f, meta, lookup, fetch, alignment):
     # Loop through the mapped alignments in Bamfile
     for align in bamfile.fetch():
         # Create mapped dict and add to list
-        if alignment['se'] or alignment['pe'] and align.is_proper_pair and align.isize > 0:
-            summary['xeno_mapped'] += 1
-            mapped_ids[align.qname] = 1
-            genome = _lookup(bamfile.getrname(align.tid), lookup['xeno_genomes'], lookup['xeno_method'])
-            mapped.append(_mapped(align, genome, meta, alignment))
-            # When it gets too big insert and clear
-            if len(mapped) >= 100:
+        if alignment['se']: 
+         pe_to_se=True
+         summary['xeno_mapped'] += 1
+         # only for popcure in our dataset  
+         #align.qname = re.split('\#+', align.qname)[0] 
+         mapped_ids[align.qname] = 1
+         genome = _lookup(bamfile.getrname(align.tid), lookup['xeno_genomes'], lookup['xeno_method'])
+         mapped.append(_mapped(align, genome, meta, alignment, pe_to_se))
+         # When it gets too big insert and clear
+         if len(mapped) >= 100:
+            if fetch['mapped']:
+             db.mapped.insert(mapped)
+             hits_ids.update(_find_gene_hits(mapped))
+             mapped = []
+        #IB pair end mode case.1 aligns as proper pair (both reads)
+        elif alignment['pe'] and align.is_proper_pair and align.isize > 0:
+         pe_to_se=False
+         summary['xeno_mapped'] += 1
+         mapped_ids[align.qname] = 1
+         genome = _lookup(bamfile.getrname(align.tid), lookup['xeno_genomes'], lookup['xeno_method'])
+         mapped.append(_mapped(align, genome, meta, alignment, pe_to_se))
+         # When it gets too big insert and clear
+         if len(mapped) >= 100:
+              if fetch['mapped']:
+                #print fetch['mapped'], genome 
                 db.mapped.insert(mapped)
                 hits_ids.update(_find_gene_hits(mapped))
                 mapped = []
+        #IB pair end mode case.2 aligns but not as proper pair "singleton case" 
+        elif alignment['pe'] and not align.is_unmapped and not align.is_proper_pair:
+         #print "not proper pair",  align.pos, align.aend, align.flag
+          pe_to_se=True
+          summary['xeno_mapped'] += 1
+          mapped_ids[align.qname] = 1
+          genome = _lookup(bamfile.getrname(align.tid), lookup['xeno_genomes'], lookup['xeno_method'])
+          mapped.append(_mapped(align, genome, meta, alignment, pe_to_se))
+          #When it gets too big insert and clear
+          if len(mapped) >= 100:
+             if fetch['mapped']:
+              db.mapped.insert(mapped)
+              hits_ids.update(_find_gene_hits(mapped))
+              mapped = [] 
+
+
 
     bamfile.close()
 
@@ -311,7 +433,7 @@ def main(args):
     '''Processes bams files and populates the DB with mapped entries that
     contain relavent read information'''
 
-    global db, logger
+    global db, logger, file_out
 
     logger = args.logging.getLogger(__name__)
     db = capsid.connect(args)
@@ -337,27 +459,57 @@ def main(args):
         logger.debug('Human using lookup file {0}'.format(lookup['human_file']))
         lookup['human_genomes'] = _lookup_custom(lookup['human_file'], lookup['human_separator'], lookup['human_column'])
 
-    # Alignment type
+  
+
+    # Alignment type 
     alignment = {
-                'se': not args.pair_end
-            ,   'pe': args.pair_end
-            }
+                'se': not args.pe
+             ,  'pe': args.pe
+                }
+
 
     # Fetch Mapped or Unmapped
-    fetch = {
-            'mapped': not args.only_unmapped
-        ,   'unmapped': args.unmapped or args.only_unmapped
-        }
+    #fetch = {
+    #        'mapped': not args.fetch_only_unmapped
+    #    ,   'unmapped': args.fetch_unmapped or args.fetch_only_unmapped
+    #        }
 
+
+
+    fetch = {
+            'mapped': not args.fetch_only_unmapped
+        ,   'unmapped': args.fetch_unmapped or args.fetch_only_unmapped
+        ,   'fastq' : args.fetch_only_unmapped_fq
+            }
+
+
+
+
+    #IB case output unmapped reads in FASTQ format 
+    if fetch['fastq']:
+      logger.info('Creatig a FASTQ file for the unmapped reads')
+      filename = "/.mounts/labs/ferr_lab/private/iborozan/analysis/capsid/unmapped/" + str(meta['alignment']['project']) + "/" + str(meta['alignment']['name']) + "/" + str(meta['alignment']['name']) + ".fq"
+      dir = os.path.dirname(filename)
+      if not os.path.exists(dir):
+       os.makedirs(dir)
+       file_out = open(filename , 'w')
+      elif os.path.exists(dir):
+       file_out = open(filename , 'w')
+
+      
+      
     # Create list of reads(mapped/unmapped) from xeno file
     logger.info('Finding mapped alignments in the Xeno BAM file...')
     xeno_mapped_ids, xeno_hits_ids = parse_xeno(args.xeno, meta, lookup, fetch, alignment)
+
 
     # Update mapped with mapped.mapsGene : 1 if it hits a gene
     # update({},{}, Upsert, Manipulate, Safe, Multi) http://api.mongodb.org/python/current/api/pymongo/collection.html
     logger.info('Updating database for reads that hit a gene...')
     for h in capsid.chunks(xeno_hits_ids.keys(), 1000):
         db.mapped.update({"_id": {"$in": h}, "alignment": meta['alignment']['name']}, {"$set": {"mapsGene": 1}}, False, False, False, True)
+
+    #updated = db.system_js.mapsGene(args.align)
 
     # Create list of reads(mapped/unmapped) from xeno file
     logger.info('Finding mapped/unmapped alignments in the Human BAM file...')
