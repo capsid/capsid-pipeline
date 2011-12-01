@@ -33,7 +33,7 @@ if __name__ == '__main__':
     import argparse
     import getpass
 
-    ### capsid Pipeline #####################################################
+    ### CaPSID Pipeline #####################################################
     parser = argparse.ArgumentParser(description='CaPSID Pipeline')
     parser.add_argument('--version', action="version", version='CaPSID {0}'.format(capsid.__version__), help='show version and exit')
     subparsers = parser.add_subparsers(title='Actions')
@@ -79,6 +79,8 @@ if __name__ == '__main__':
     query = fasta_parser.add_argument_group('Query Options')
     query.add_argument('--organism', nargs='+', metavar='O', default=None, help='List of organisms to look up')
     query.add_argument('--taxonomy', nargs='+', metavar='T', default=None, help='List of taxonomy descriptors')
+    query.add_argument('--ref', metavar='R', default=None, help='ReqSeq Accession')
+    query.add_argument('--gi', metavar='G', default=None, help='GenInfo Identifier')
     query.add_argument('--output', metavar='F', default='genomes.fa', help='Path of the created fasta file [./genomes.fa]')
     # Logging Options
     verbose_debug = fasta_parser.add_mutually_exclusive_group()
