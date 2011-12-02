@@ -18,11 +18,16 @@ import gridfs
 
 import capsid
 
-db, gfs, logger = None, None, None
-r_it, g_it, f_it, s_it = count(), count(), count(), count()
-
 Record = namedtuple('Record', ['genome', 'features', 'sequence'])
 Qualifiers = namedtuple('Qualifiers', ['name', 'geneId', 'locusTag'])
+Counter = namedtuple('Counter', ['records', 'genomes', 'features', 'sequences'])
+
+db = None
+gfs = None
+logger = None
+counter = Counter(count(), count(), count(), count())
+r_it, g_it, f_it, s_it = count(), count(), count(), count()
+
 
 
 def insert_records(record):
@@ -34,11 +39,19 @@ def insert_records(record):
         gfs.put(record.sequence,_id=record.genome['gi'],chunkSize=80)
 
 
+def unknown_seq(record):
+    '''Filters out unknown sequences that are all 'N' so they are not saved'''
+
+    return 'N' in record.seq
+
+
 def extract_sequence(record,  genome):
     '''Returns a dictionary of the genome sequence'''
-    global s_it
-    s_it.next()
-    return record.seq.tostring()
+    global counter
+    counter.sequences.next()
+
+    if not unknown_seq(record):
+        return record.seq.tostring()
 
 
 def get_qualifiers(qualifiers):
@@ -66,8 +79,8 @@ def build_subfeatures(feature, genome):
 
 def build_feature(feature, genome, sf_location = None):
     '''Returns a dictionary of the feature'''
-    global f_it
-    f_it.next()
+    global counter
+    counter.features.next()
 
     qualifiers = get_qualifiers(feature.qualifiers)
     feature.location = sf_location or feature.location
@@ -103,8 +116,8 @@ def extract_features(record, genome):
 
 def extract_genome(record):
     '''Returns a dictionary of the genome'''
-    global g_it
-    g_it.next()
+    global counter
+    counter.genomes.next()
 
     genome = {
         "gi": int(record.annotations['gi'])
@@ -120,12 +133,6 @@ def extract_genome(record):
     return genome
 
 
-def unknown_seq(record):
-    '''Filters out unknown sequences that are all 'N' so they are not saved'''
-
-    return 'N' in record.seq
-
-
 def exists(record, genomes):
     '''Checks if the record's GI exists in the list of GIs from the database'''
 
@@ -134,17 +141,15 @@ def exists(record, genomes):
 
 def parse_record(record, dbgenomes):
     '''Pull out genomic information from the GenBank file'''
-    global r_it
-    r_it.next()
+    global counter
+    counter.records.next()
 
     if exists(record, dbgenomes):
         return None
 
     genome = extract_genome(record)
     features = extract_features(record, genome)
-    sequence = None
-    if not unknown_seq(record):
-        sequence = extract_sequence(record, genome)
+    sequence = extract_sequence(record, genome)
 
     return Record(genome, features, sequence)
 
@@ -171,23 +176,26 @@ def parse_gb_file(f):
 
 def summary():
     '''Logging summary of added records'''
-    global r_it, g_it, f_it, s_it
+    global counter
 
     # Counter starts at 0, so >it = count(); >print it.next(); >0
     # Using *_it.next here sets it to the correct value for printing.
-    r_add, g_add, f_add, s_add = r_it.next(), g_it.next(), f_it.next(), s_it.next()
+    records = counter.records.next()
+    genomes = counter.genomes.next()
+    features = coutner.features.next()
+    sequences = counter.sequences.next()
 
-    if r_add:
-        logger.info("{0} Genomes found, {1} new Genomes added.".format(r_add, g_add))
-        if f_add:
-            logger.info('{0} Features added successfully!'.format(f_add))
-        if s_add:
-            logger.info('{0} Sequences added successfully!'.format(s_add))
+    if records:
+        logger.info("{0} Genomes found, {1} new Genomes added.".format(records, genomes))
+        if features:
+            logger.info('{0} Features added successfully!'.format(features))
+        if sequences:
+            logger.info('{0} Sequences added successfully!'.format(sequences))
     else:
         logger.info('No Genomes found, make sure this is a GenBank file.')
 
     # Reset the counter for the next file
-    r_it, g_it, f_it, s_it = count(), count(), count(), count()
+    counter = Counter(count(), count(), count(), count())
 
 
 def main(args):
