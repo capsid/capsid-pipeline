@@ -23,7 +23,7 @@ def fasta_(args):
     capsid.fasta.main(args)
 
 def subtraction_(args):
-    capsid.subtraction.main(args)
+    capsid.subtractionf.main(args)
 
 def statistics_(args):
     capsid.statistics.main(args)
