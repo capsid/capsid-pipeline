@@ -33,8 +33,8 @@ r_it, g_it, f_it, s_it = count(), count(), count(), count()
 def insert_records(record):
     '''Inserts Genome, Features and Sequence into Database'''
 
-    db.genome.insert(record.genome)
-    [db.feature.insert(feature) for feature in record.features]
+    db.genome.save(record.genome)
+    [db.feature.save(feature) for feature in record.features]
     if record.sequence:
         gfs.put(record.sequence,_id=record.genome['gi'],chunkSize=80)
 
@@ -182,7 +182,7 @@ def summary():
     # Using *_it.next here sets it to the correct value for printing.
     records = counter.records.next()
     genomes = counter.genomes.next()
-    features = coutner.features.next()
+    features = counter.features.next()
     sequences = counter.sequences.next()
 
     if records:
