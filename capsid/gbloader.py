@@ -10,52 +10,46 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 from itertools import count
 from collections import namedtuple
+import re
 
 from Bio import SeqIO
-import gridfs
 
-import capsid
+from database import *
 
-Record = namedtuple('Record', ['genome', 'features', 'sequence'])
+
 Qualifiers = namedtuple('Qualifiers', ['name', 'geneId', 'locusTag'])
-Counter = namedtuple('Counter', ['records', 'genomes', 'features', 'sequences'])
+Counter = namedtuple('Counter', ['records', 'genomes', 'pending', 'features', 'sequences'])
 
 db = None
-gfs = None
 logger = None
-counter = Counter(count(), count(), count(), count())
-r_it, g_it, f_it, s_it = count(), count(), count(), count()
+counter = Counter(count(), count(), count(), count(), count())
 
 
-
-def insert_records(record):
-    '''Inserts Genome, Features and Sequence into Database'''
-
-    db.genome.save(record.genome)
-    [db.feature.save(feature) for feature in record.features]
-    if record.sequence:
-        gfs.put(record.sequence,_id=record.genome['gi'],chunkSize=80)
-
-
-def unknown_seq(record):
+def valid_seq(record):
     '''Filters out unknown sequences that are all 'N' so they are not saved'''
 
-    return 'N' in record.seq
+    m = re.search('[AGCT]', record.seq.tostring())
+
+    return bool(m)
 
 
-def extract_sequence(record,  genome):
+def extract_sequence(record, genome, delete=False):
     '''Returns a dictionary of the genome sequence'''
     global counter
-    counter.sequences.next()
 
-    if not unknown_seq(record):
-        return record.seq.tostring()
+    if valid_seq(record):
+        counter.sequences.next()
+        if delete: genome.fs.delete(genome.gi)
+        genome.fs.put(record.seq.tostring(), _id=genome.gi, filename='sequence', chunkSize=80)
 
 
 def get_qualifiers(qualifiers):
     '''Returns dictionary of useful qualifiers for the feature'''
+
+    gene = qualifiers['gene'][0] if 'gene' in qualifiers else None
 
     locusTag = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else None
 
@@ -64,17 +58,15 @@ def get_qualifiers(qualifiers):
     except (IndexError, KeyError):
         geneId = None
 
-    gene = qualifiers['gene'][0] if 'gene' in qualifiers else None
-
     name = gene or locusTag or geneId or 'NA'
 
-    return Qualifiers(name, geneId or 'NA', locusTag or 'NA')
+    return Qualifiers(name, geneId or u'NA', locusTag or 'NA')
 
 
 def build_subfeatures(feature, genome):
     '''Needed for features with locations that are 'join' or 'order'. Recreates the parent features multiple times using the subfeatures' location.'''
 
-    return [build_feature(feature, genome, sf.location) for sf in feature.sub_features]
+    [build_feature(feature, genome, sf.location) for sf in feature.sub_features]
 
 
 def build_feature(feature, genome, sf_location = None):
@@ -85,9 +77,9 @@ def build_feature(feature, genome, sf_location = None):
     qualifiers = get_qualifiers(feature.qualifiers)
     feature.location = sf_location or feature.location
 
-    f = {
+    db.Feature({
         "name": qualifiers.name
-        , "genome": genome["gi"]
+        , "genome": genome.gi
         , "geneId": qualifiers.geneId
         , "locusTag": qualifiers.locusTag
         , "start": feature.location.nofuzzy_start + 1
@@ -95,9 +87,7 @@ def build_feature(feature, genome, sf_location = None):
         , "operator": feature.location_operator
         , "strand": feature.strand
         , "type": feature.type
-        }
-
-    return f
+        }).save()
 
 
 def extract_feature(feature, genome):
@@ -105,21 +95,25 @@ def extract_feature(feature, genome):
 
     has_subs = feature.location_operator in ['join', 'order']
 
-    return build_subfeatures(feature, genome) if has_subs else build_feature(feature, genome)
+    build_subfeatures(feature, genome) if has_subs else build_feature(feature, genome)
 
 
-def extract_features(record, genome):
+def extract_features(record, genome, delete=False):
     '''Returns a list of features belonging to the genome'''
 
-    return (extract_feature(f, genome) for f in record.features[1:] if f.type in ['gene', 'CDS'])
+    if delete: db.feature.remove({'genome': genome.gi})
+
+    [extract_feature(f, genome) for f in record.features[1:] if f.type in ['gene', 'CDS']]
 
 
-def extract_genome(record):
+def extract_genome(record, delete):
     '''Returns a dictionary of the genome'''
     global counter
     counter.genomes.next()
 
-    genome = {
+    if delete: db.genome.remove({'gi': int(record.annotations['gi'])})
+
+    genome = db.Genome({
         "gi": int(record.annotations['gi'])
         , "name": record.description
         , "accession": record.name
@@ -128,9 +122,20 @@ def extract_genome(record):
         , "strand":  record.features[0].strand
         , "taxonomy": record.annotations['taxonomy']
         , "organism": record.annotations['organism']
-        }
+        , "pending": "features"
+        })
+
+    genome.save()
 
     return genome
+
+
+def get_genome(record):
+    '''Returns genome from Database'''
+    global counter
+    counter.pending.next()
+
+    return db.Genome.one({'gi': int(record.annotations['gi'])})
 
 
 def exists(record, genomes):
@@ -139,38 +144,51 @@ def exists(record, genomes):
     return int(record.annotations['gi']) in genomes
 
 
-def parse_record(record, dbgenomes):
+def parse_record(record, saved_genomes, pending_genomes, repair):
     '''Pull out genomic information from the GenBank file'''
     global counter
     counter.records.next()
 
-    if exists(record, dbgenomes):
+    if not repair and exists(record, saved_genomes):
         return None
 
-    genome = extract_genome(record)
-    features = extract_features(record, genome)
-    sequence = extract_sequence(record, genome)
+    is_pending = exists(record, pending_genomes)
+    delete = repair or is_pending
 
-    return Record(genome, features, sequence)
-
-
-def get_db_genomes():
-    '''Get a list of genomes currently in the db, uses GI to prevent duplication.'''
-
-    return set(g['gi'] for g in db.genome.find({}, {"_id":0, "gi":1}))
+    genome = get_genome(record) if is_pending else extract_genome(record, delete)
 
 
-def parse_gb_file(f):
+    if genome.pending == 'features':
+        extract_features(record, genome, delete)
+        genome.pending = 'sequence'
+        genome.save()
+
+    extract_sequence(record, genome, delete)
+    del genome['pending']
+
+    genome.save()
+
+
+def get_pending_genomes():
+    '''Returns a set of genomes with pending transactions'''
+
+    return set(genome['gi'] for genome in db.Genome.find({'pending': {'$exists': True}}))
+
+
+def get_saved_genomes():
+    '''Returns a set of genomes currently in the db, uses GI to prevent duplication.'''
+
+    return set(genome['gi'] for genome in db.Genome.find({'pending': {'$exists': False}}))
+
+
+def parse_gb_file(f, repair):
     '''Use SeqIO to extract genome data from GenBank files'''
     logger.info('Scanning GenBank File {0}'.format(f))
 
     with open(f, 'rU') as fh:
-        dbgenomes = get_db_genomes()
-        records = (parse_record(r, dbgenomes) for r in SeqIO.parse(fh, 'gb'))
-        # parse_record will return None if the genome is already in the Database.
-        # Using filter(None, records) will put the entire thing in memory,
-        # this way it only deals with 1 record at a time and skips the 'None's.
-        [insert_records(r) for r in records if r]
+        pending_genomes = get_pending_genomes() if not repair else []
+        saved_genomes = get_saved_genomes() if not repair else []
+        [parse_record(r, saved_genomes, pending_genomes, repair) for r in SeqIO.parse(fh, 'gb')]
         summary()
 
 
@@ -179,14 +197,17 @@ def summary():
     global counter
 
     # Counter starts at 0, so >it = count(); >print it.next(); >0
-    # Using *_it.next here sets it to the correct value for printing.
+    # Using counter.*.next here sets it to the correct value for printing.
     records = counter.records.next()
     genomes = counter.genomes.next()
+    pending = counter.pending.next()
     features = counter.features.next()
     sequences = counter.sequences.next()
 
     if records:
         logger.info("{0} Genomes found, {1} new Genomes added.".format(records, genomes))
+        if pending:
+            logger.info('{0} Genome found with pending transactions'.format(pending))
         if features:
             logger.info('{0} Features added successfully!'.format(features))
         if sequences:
@@ -195,7 +216,7 @@ def summary():
         logger.info('No Genomes found, make sure this is a GenBank file.')
 
     # Reset the counter for the next file
-    counter = Counter(count(), count(), count(), count())
+    counter = Counter(count(), count(), count(), count(), count())
 
 
 def main(args):
@@ -204,13 +225,13 @@ def main(args):
     python gloader.py g1.gbff gb2.gbff',
     '''
 
-    global db, gfs, logger
+    global db, logger
 
     logger = args.logging.getLogger(__name__)
-    db = capsid.connect(args)
-    gfs = gridfs.GridFS(db, 'sequence')
+    db = connect(args)
 
-    map(parse_gb_file, args.files)
+    [parse_gb_file(f, args.repair) for f in args.files]
+
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid gbloader -h\n\tor\n\t$ /path/to/capsid/bin/capsid gbloader -h'

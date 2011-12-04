@@ -34,7 +34,7 @@ def connect(args):
     connection = pymongo.Connection(address, port)
     admindb = connection.admin
     admindb.authenticate(username, password)
-    logger.debug('Connecting to {0}:{1}'.format(address, port))
+    logger.debug('Connecting to {0}:{1} ({2})'.format(address, port, db))
 
     return connection[db]
 

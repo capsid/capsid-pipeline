@@ -63,6 +63,7 @@ if __name__ == '__main__':
                                            description='GenBank Loader\n\nExample:\n\tcapsid gbloader gb1.gbff gb2.gbff',
                                            help='GenBank Loader')
     gbloader_parser.add_argument('files', metavar='F', nargs='+', help='List of GenBank files')
+    gbloader_parser.add_argument('--repair', action='store_true', default=False, help='Overwrite existing Genomes instead of skipping them')
     ## Logging Options
     verbose_debug = gbloader_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to WARNING')
