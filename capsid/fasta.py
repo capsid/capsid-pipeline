@@ -10,44 +10,41 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import re
 
-import gridfs
+from database import *
 
-import capsid
+
+def fasta_output(genome, out):
+    '''Output Genome in Fasta format'''
+
+    out.write('>gi|{gi}|ref|{accession}.{version}| {name}\n'.format(**genome))
+    [out.write('{0}\n'.format(line)) for line in genome.fs.get(genome.gi)]
 
 
 def main(args):
     '''Fasta Output of Genomes in the Database'''
-    print args
+
     logger = args.logging.getLogger(__name__)
-    db = capsid.connect(args)
-    gfs = gridfs.GridFS(db, 'sequence')
+    db = connect(args)
 
     # By default the query will not include Human
     query = {"organism": {'$ne': "Homo sapiens"}}
 
-    if args.organism:
-        query['organism'] = {'$in': args.organism}
-    if args.taxonomy:
-        query['taxonomy'] = {'$in': args.taxonomy}
-    if args.ref:
-        query['accession'] = args.ref
-    if args.gi:
-        query['gi'] = int(args.gi)
+    if args.organism: query['organism'] = {'$in': args.organism}
+    if args.taxonomy: query['taxonomy'] = {'$in': args.taxonomy}
+    if args.ref: query['accession'] = args.ref
+    if args.gi: query['gi'] = int(args.gi)
 
-    genomes = db.genome.find(query)
+    genomes = db.Genome.find(query)
     logger.info('Found {0} genomes'.format(genomes.count()))
-    out = open(args.output, 'w')
-    logger.info('Output genomes in Fasta format...')
-    logger.debug('Writting to {0}...'.format(args.output))
-    for genome in genomes:
-        out.write('>gi|{gi}|ref|{accession}.{version}| {name}\n'.format(**genome))
-        for line in gfs.get(genome['gi']):
-            out.write('{0}\n'.format(line))
+
+    logger.debug('Writing Fasta output to {0}...'.format(args.output))
+    with open(args.output, 'w') as out:
+        [fasta_output(genome, out) for genome in genomes]
 
     logger.info('{0} created.'.format(args.output))
+
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid fasta -h\n\tor\n\t$ /path/to/capsid/bin/capsid fasta -h'
