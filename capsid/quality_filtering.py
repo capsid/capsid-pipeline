@@ -175,7 +175,7 @@ if options.pairend and len(args) == 3:
   in_fq1.close
   out_fq.close
 
-  cmd = 'rm *.fq1'
+  cmd = 'rm ' + sorted_reads1 + ' ' + sorted_reads2 + ' ' + file_out1 + ' ' + file_out2
 
   os.system(cmd)
 
@@ -228,7 +228,7 @@ elif not options.pairend and len(args) == 2:
     in_fq1.close
     out_fq.close
 
-    cmd = 'rm *.fq1'
+    cmd = 'rm ' + sorted_reads1 + ' ' + file_out1
 
     os.system(cmd)
 
