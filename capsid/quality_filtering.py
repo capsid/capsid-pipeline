@@ -22,8 +22,8 @@ if options.verbose:
 
 #print options.pairend
 
-print len(args)
-print options.temp
+#print len(args)
+#print options.temp
 
 if len(args) == 4 and options.pairend and options.temp: 
   if args[1] == args[2]:
@@ -147,11 +147,11 @@ if (len(args) == 4 and options.pairend and options.temp) or (len(args) == 3 and 
 
 
   if options.temp:
-    print 'temp files will be stored in', str(args[3])
+    #print 'temp files will be stored in', str(args[3])
     cmd1 = 'cat ' + file_out1 + '| sort -T' + str(args[3]) + ' ' + '| uniq > ' + sorted_reads1
     cmd2 = 'cat ' + file_out2 + '| sort -T' + str(args[3]) + ' ' + '| uniq > ' + sorted_reads2
-    print cmd1
-    print cmd2
+    #print cmd1
+    #print cmd2
   else:
     cmd1 = 'cat ' + file_out1 + '| sort | uniq > ' + sorted_reads1
     cmd2 = 'cat ' + file_out2 + '| sort | uniq > ' + sorted_reads2 
@@ -231,9 +231,9 @@ elif (not options.pairend and len(args) == 3 and options.temp) or (len(args) == 
     sorted_reads1 = file_out1 + ".uniq.fq1"
 
     if options.temp:
-       print 'temp files will be stored in', str(args[2])
+       #print 'temp files will be stored in', str(args[2])
        cmd1 = 'cat ' + file_out1 + '| sort -T ' + str(args[2]) + ' ' + '| uniq > ' + sorted_reads1
-       print cmd1 
+       #print cmd1 
     else:
        cmd1 = 'cat ' + file_out1 + '| sort | uniq > ' + sorted_reads1
 
