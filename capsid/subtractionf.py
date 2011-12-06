@@ -18,7 +18,7 @@ import re
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
 
-import capsid
+from database import *
 
 
 Counter = namedtuple('Counter', ['xeno_mapped', 'ref_mapped', 'ref_unmapped'])
@@ -35,13 +35,11 @@ regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
 def get_meta(align_name):
     '''Gather the meta data for the alignment from the database'''
 
-    alignment = db.alignment.find_one({"name": align_name})
+    alignment = db.Alignment.one({"name": align_name})
     try:
-        sample = db.sample.find_one({"name": alignment['sample']})
-    except TypeError:
+        sample = db.Sample.one({"name": alignment.sample})
+    except AttributeError:
         exit(logger.error("Alignment {0} not found in Database.".format(align_name)))
-    except KeyError:
-        exit(logger.error("Sample cannot be found. Please make sure the Alignment has been created properly."))
 
     logger.debug('Subtraction for alignment: {0}'.format(align_name))
 
@@ -59,12 +57,12 @@ def build_mapped(align, genome, reference=False):
     scores = [ord(m)-33 for m in align.qqual]
 
     if align.is_proper_pair:
-        align_length = int(align.isize)
-        ref_end = int(align.pos + align.isize) + 1
+        align_length = align.isize
+        ref_end = align.pos + align.isize + 1
     else:
         # If the cigar data is missing [(), ()] give it a length of 1
         align_length = align.alen if align.alen else 1
-        ref_end = align.aend or int(align.pos + 1) + align_length
+        ref_end = align.aend or align.pos + align_length + 1
 
     try: mismatch = len(re.findall("\D", align.opt('MD')))
     except KeyError: mismatch = align.alen or 0
@@ -75,19 +73,19 @@ def build_mapped(align, genome, reference=False):
        , "refStart": align.pos + 1 # pysam is 0-based index
        , "refEnd": int(ref_end)
        , "alignLength": int(align_length)
-       , "readLength": int(align.rlen)  # Total Length of the read
-       , "mapq": int(align.mapq)
+       , "readLength": align.rlen  # Total Length of the read
+       , "mapq": align.mapq
        , "minQual": min(scores)
        , "avgQual": sum(scores) / len(scores)
        , "miscalls": align.qqual.count('.')
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
        , "genome": genome
-       , "project": meta.sample['project']
-       , "sample": meta.sample['name']
-       , "alignment": meta.alignment['name']
-       , "platform": meta.alignment['platform']
-       , "sequencingType": meta.alignment['type']
+       , "project": meta.sample.project
+       , "sample": meta.sample.name
+       , "alignment": meta.alignment.name
+       , "platform": meta.alignment.platform
+       , "sequencingType": meta.alignment.type
        }
 
     if maps_gene(mapped):
@@ -99,15 +97,13 @@ def build_mapped(align, genome, reference=False):
     return mapped
 
 
-def query_genome(gid):
+def get_genome(gid):
     '''Query database for genome using both gi and accession'''
 
     if gid.gi:
-        genome = db.genome.find_one({'gi':int(gid.gi)}, {'_id':0, 'gi':1})
+        genome = db.Genome.one({'gi':int(gid.gi)}, {'_id':0, 'gi':1})
     elif gid.accession:
-        genome = db.genome.find_one({'acession':gid.accession}, {'_id':0, 'gi':1})
-    else:
-        logger.error('Could not find Genome using gi or accession from genome header. Please make sure your header contains the standard formats for either GenInfo integrated database (gi|integer) or RefSeq (ref|accession|name).')
+        genome = db.Genome.one({'acession':gid.accession}, {'_id':0, 'gi':1})
 
     return genome
 
@@ -118,14 +114,16 @@ def determine_genome(genome_header):
     result = regex.findall(genome_header)
 
     gids = [GenomeIds(r[0], r[2]) for r in result]
+    genome = filter(None, [get_genome(gid) for gid in gids]).pop()['gi']
 
-    return filter(None, [query_genome(gid) for gid in gids]).pop()['gi']
-
+    return genome
 
 def insert_mapped(mapped):
     '''Insert mapped alignments into Database'''
 
-    print 'insert_mapped: ', mapped
+    #mapped.save(safe=False)
+    db.mapped.insert(mapped)
+    #return mapped.readId
 
 
 def extract_mapped(align, genome_header):
@@ -147,8 +145,8 @@ def parse_xeno(f):
 
     bamfile = pysam.Samfile(f, 'rb')
     mapped = (extract_mapped(align, bamfile.getrname(align.tid)) for align in bamfile.fetch() if not align.is_proper_pair or align.is_proper_pair and align.isize > 0)
-    ids = set(insert_mapped(align) for align in mapped)
-    print 'done'
+    #ids = set(insert_mapped(align) for align in mapped)
+    [insert_mapped(align) for align in mapped]
 
     return ids
 
@@ -158,10 +156,11 @@ def main(args):
     global db, logger, meta
 
     logger = args.logging.getLogger(__name__)
-    db = capsid.connect(args)
+    db = connect(args)
     meta = get_meta(args.align)
 
     xeno_mapped_readids = parse_xeno(args.xeno)
+
     #intersecting_mapped_readids = parse_ref(args.ref)
 
 

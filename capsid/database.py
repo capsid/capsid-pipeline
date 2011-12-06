@@ -14,6 +14,53 @@ import os, ConfigParser
 from mongokit import *
 
 
+class Project(Document):
+    __collection__ = 'project'
+    structure = {
+        "name": basestring
+        , "label": basestring
+        , "description": basestring
+        , "wikiLink": basestring
+        , "role": [basestring]
+        }
+    use_dot_notation = True
+    indexes = [
+        {'fields': 'label', 'unique': True}
+        ]
+
+class Sample(Document):
+    __collection__ = 'sample'
+    structure = {
+        "name": basestring
+        , "description": basestring
+        , "project": basestring
+        , "cancer": basestring
+        , "role": basestring
+        , "source": basestring
+        }
+    use_dot_notation = True
+    indexes = [
+        {'fields': 'name', 'unique': True}
+        , {'fields': 'project'}
+        ]
+
+class Alignment(Document):
+    __collection__ = 'alignment'
+    structure = {
+        "name": basestring
+        , "project": basestring
+        , "sample": basestring
+        , "aligner": basestring
+        , "platform": basestring
+        , "type": basestring
+        , "infile": basestring
+        , "outfile": basestring
+        }
+    use_dot_notation = True
+    indexes = [
+        {'fields': 'name', 'unique': True}
+        ]
+
 class Genome(Document):
     __collection__ = 'genome'
     structure = {
@@ -29,6 +76,11 @@ class Genome(Document):
         }
     gridfs = {'files': ['sequence']}
     use_dot_notation = True
+    indexes = [
+        {'fields': 'gi', 'unique': True}
+        , {'fields': 'accession', 'unique': True}
+        , {'fields': 'pending'}
+        ]
 
 class Feature(Document):
     __collection__ = 'feature'
@@ -44,6 +96,48 @@ class Feature(Document):
         , "type": basestring
         }
     use_dot_notation = True
+    indexes = [
+        {'fields': 'genome'}
+        , {'fields': ['genome', 'type', 'strand']}
+        , {'fields': 'start'}
+        ]
+
+class Mapped(Document):
+    __collection__ = 'mapped'
+    use_schemaless = True
+    structure = {
+        "readId": basestring
+        , "refStrand": int
+        , "refStart": int
+        , "refEnd": int
+        , "alignLength": int
+        , "readLength": int
+        , "mapq": long
+        , "minQual": int
+        , "avgQual": float
+        , "miscalls": int
+        , "mismatch": int
+        , "pairEnd": int
+        , "genome": int
+        , "project": basestring
+        , "sample": basestring
+        , "alignment": basestring
+        , "platform": basestring
+        , "sequencingType": basestring
+        , "mapsGene": int
+        , "isRef": int
+        }
+    required_fields = ['readId', 'refStrand', 'refStart', 'refEnd', 'alignLength',
+                       'readLength', 'mapq', 'minQual', 'avgQual', 'miscalls',
+                       'mismatch', 'pairEnd', 'genome', 'project', 'sample',
+                       'alignment', 'platform', 'sequencingType']
+    use_dot_notation = True
+    indexes = [
+        {'fields': 'readId'}
+        , {'fields': ['genome', 'sample', 'mapsGene']}
+        , {'fields': ['genome', 'project', 'mapsGene']}
+        , {'fields': 'refStart'}
+        ]
 
 
 def connect(args):
@@ -69,7 +163,6 @@ def connect(args):
     admindb = connection.admin
     admindb.authenticate(username, password)
 
-    connection.register([Genome, Feature])
+    connection.register([Project, Sample, Alignment, Genome, Feature, Mapped])
 
     return connection[database]
-

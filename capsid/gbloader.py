@@ -157,7 +157,6 @@ def parse_record(record, saved_genomes, pending_genomes, repair):
 
     genome = get_genome(record) if is_pending else extract_genome(record, delete)
 
-
     if genome.pending == 'features':
         extract_features(record, genome, delete)
         genome.pending = 'sequence'

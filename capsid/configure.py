@@ -49,7 +49,7 @@ def ensure_indexes():
 
     # Mapped
     logger.debug('Adding Mapped Indices')
-    db.alignment.ensure_index('refStart')
+    db.mapped.ensure_index('refStart')
     db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
@@ -65,6 +65,9 @@ def ensure_indexes():
     # UserRole
     logger.debug('Adding UserRole Index')
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
+
+    # GridFS
+    db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
 
 def genome_samples():
     '''Calculate how many samples hit the genomes'''

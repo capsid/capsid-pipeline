@@ -12,7 +12,7 @@
 import logging, logging.handlers
 import os, sys, errno, ConfigParser
 
-import configure, sam2bam, gbloader, subtractionf, statistics, fasta
+import configure, sam2bam, gbloader, subtraction, subtractionf, statistics, fasta
 
 
 def connect(args):

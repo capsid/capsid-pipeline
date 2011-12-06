@@ -84,7 +84,7 @@ def _lookup(header_from_file, genomes, method):
         result = format.findall(header_from_file)
         for r in result:
             if r[0]:
-                g = db.genome.find_one({'gi': r[0]}, {'_id': 1})['_id']
+                g = db.genome.find_one({'gi': int(r[0])}, {'_id': 1})['_id']
                 break
             elif r[2]:
                 g = db.genome.find_one({'accession': r[2]}, {'_id': 1})['_id']
