@@ -11,12 +11,11 @@
 
 
 from __future__ import division
-from itertools import count, ifilter, repeat
+from itertools import count, ifilter
 from collections import namedtuple
-import re
-
-import multiprocessing
 from functools import partial
+import multiprocessing
+import re
 
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
@@ -30,6 +29,7 @@ Meta = namedtuple('Meta', ['sample', 'alignment'])
 db = None
 logger = None
 meta = None
+mapq = None
 intersecters = {}
 counter = Counter(count(), count(), count(), count())
 regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
@@ -153,10 +153,16 @@ def insert_mapped(mapped, process):
     return mapped['readId']
 
 
+def valid_mapped(align):
+    '''Returns true if single-end or pair-end with isize'''
+
+    return not align.is_proper_pair or align.is_proper_pair and align.isize
+
+
 def extract_mapped(align, bamfile, reference=False):
     '''Process mapped alignment and return dict'''
 
-    if not align.is_proper_pair or align.is_proper_pair and align.isize:
+    if align.mapq >= mapq and valid_mapped(align):
         counter.xeno_mapped.next() if reference else counter.ref_mapped.next()
         genome = determine_genome(bamfile.getrname(align.tid))
 
@@ -174,7 +180,7 @@ def extract_alignment(align, bamfile, readids, fastaq):
 
     in_xeno = maps_xeno(align, readids)
 
-    if align.is_unmapped and not in_xeno:
+    if align.is_unmapped and not in_xeno and fastaq:
         counter.ref_unmapped.next()
         extract_unmapped(align, fastaq)
     elif not align.is_unmapped and in_xeno:
@@ -227,11 +233,11 @@ def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
 
 def main(args):
     ''' '''
-    global db, logger, meta
-
+    global db, logger, meta, mapq
     logger = args.logging.getLogger(__name__)
     db = connect(args)
     meta = get_meta(args.align)
+    mapq = int(args.filter)
     process = args.process
 
     pool_size = multiprocessing.cpu_count()
@@ -244,15 +250,16 @@ def main(args):
     xeno_mapped_readids = set(pool.map(p_mapped, xeno_mapped))
 
     ref_mapped = parse_ref(args.ref, xeno_mapped_readids, process)
-    if process is 'mapped':
+    if process == 'mapped':
         logger.info('Inserting mapped alignments from Reference BAM file...')
-    elif process is 'unmapped':
+    elif process == 'unmapped':
         logger.info('Outputting unmapped alignments from Reference BAM file...')
     else:
         logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
     intersecting_mapped_readids = set(pool.map(p_mapped, ref_mapped))
 
     summary(xeno_mapped_readids, intersecting_mapped_readids, process)
+
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid subtraction -h\n\tor\n\t$ /path/to/capsid/bin/capsid subtraction -h'

@@ -131,6 +131,8 @@ if __name__ == '__main__':
     subtractf_parser.add_argument('align', help='Alignment Name from Database')
     # Process Mapped/Unmapped/Both
     subtractf_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
+    # MapQ score filter
+    subtractf_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
     # Logging Options
     verbose_debug = subtractf_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
