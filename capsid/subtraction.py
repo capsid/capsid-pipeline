@@ -19,6 +19,7 @@ import pysam
 from bx.intervals.intersection import Intersecter, Interval
 
 import capsid
+from database import *
 
 
 db, logger = None, None
@@ -84,10 +85,10 @@ def _lookup(header_from_file, genomes, method):
         result = format.findall(header_from_file)
         for r in result:
             if r[0]:
-                g = db.genome.find_one({'gi': int(r[0])}, {'_id': 1})['_id']
+                g = db.genome.find_one({'gi': int(r[0])}, {'gi': 1})['gi']
                 break
             elif r[2]:
-                g = db.genome.find_one({'accession': r[2]}, {'_id': 1})['_id']
+                g = db.genome.find_one({'accession': r[2]}, {'gi': 1})['gi']
                 break
             else:
                 logger.error('Could not find Gi or Accession from genome header. Please make sure your header contains the standard formats for either GenInfo integrated database (gi|integer) or RefSeq (ref|accession|name).')
@@ -112,23 +113,22 @@ def _find_gene_hits(mapped):
 
     # Loop through mapped to see if there is a hit
     for m in mapped:
-            # Get tree
-            try:
-                intersecter = intersecters[m['genomeId']]
-            except:
-                genes = db.feature.find({"genomeId": m['genomeId'], "type": "gene"})
+        # Get tree
+        try:
+            intersecter = intersecters[m['genome']]
+        except:
+            genes = db.feature.find({"genome": m['genome'], "type": "gene"})
 
-                # Initialize tree
-                intersecter = Intersecter()
+            # Initialize tree
+            intersecter = Intersecter()
+            for gene in genes:
+                # Interval end is exclusive, need to +1 to line up with actual position
+                try:
+                    intersecter.add_interval(Interval(gene['start'], gene['end'] + 1))
+                except AssertionError:
+                    logger.error('Gene: {0} - start is greater than stop. Skipping...'.format(gene['_id']))
 
-                for gene in genes:
-                    # Interval end is exclusive, need to +1 to line up with actual position
-                    try:
-                        intersecter.add_interval(Interval(gene['start'], gene['end'] + 1))
-                    except AssertionError:
-                        logger.error('Gene: {0} - start is greater than stop. Skipping...'.format(gene['_id']))
-
-                intersecters[m['genomeId']] = intersecter
+                intersecters[m['genome']] = intersecter
 
             # Check if mapped hits any gene, save readId
             if intersecter.find(m['refStart'], m['refEnd']):
@@ -182,7 +182,7 @@ def _mapped(align, genome, meta, alignment, human=False):
        , "sequencingType": meta['alignment']['type']
        , "platform": meta['alignment']['platform']
        , "project": meta['sample']['project']
-       , "genomeId": genome
+       , "genome": genome
        , "sample": meta['sample']['name']
        , "alignment": meta['alignment']['name']
      }
@@ -314,7 +314,7 @@ def main(args):
     global db, logger
 
     logger = args.logging.getLogger(__name__)
-    db = capsid.connect(args)
+    db = connect(args)
 
     meta = meta_data(args.align)
     lookup = dict(zip(['xeno_method', 'human_method',

@@ -23,6 +23,9 @@ def fasta_(args):
     capsid.fasta.main(args)
 
 def subtraction_(args):
+    capsid.subtraction.main(args)
+
+def subtractionf_(args):
     capsid.subtractionf.main(args)
 
 def statistics_(args):
@@ -117,6 +120,23 @@ if __name__ == '__main__':
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
     # AutoRun
     subtract_parser.set_defaults(func=subtraction_)
+
+    ### BAM Subtraction #######################################################
+    subtractf_parser = subparsers.add_parser('subtractionf',
+                                           formatter_class=argparse.RawDescriptionHelpFormatter,
+                                           description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
+                                           help='BAM Subtraction')
+    subtractf_parser.add_argument('xeno', help='Xeno BAM File')
+    subtractf_parser.add_argument('ref', help='Reference BAM File')
+    subtractf_parser.add_argument('align', help='Alignment Name from Database')
+    # Process Mapped/Unmapped/Both
+    subtractf_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
+    # Logging Options
+    verbose_debug = subtractf_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='set logging output to DEBUG')
+    # AutoRun
+    subtractf_parser.set_defaults(func=subtractionf_)
 
     ### Statistics  ###########################################################
     stats_parser = subparsers.add_parser('statistics',

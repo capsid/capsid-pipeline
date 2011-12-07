@@ -24,16 +24,6 @@ db, logger = None, None
 def ensure_indexes():
     '''Creates the MongoDB Indices needed to effeciently run CaPSID'''
 
-    # Genome
-    logger.debug('Adding Genome Indices')
-    db.genome.ensure_index('gi', unique=True)
-    db.genome.ensure_index('accession', unique=True)
-
-    # Feature
-    logger.debug('Adding Feature Indices')
-    db.feature.ensure_index([('genomeId', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
-    db.feature.ensure_index([('start', pymongo.ASCENDING)])
-
     # Project
     logger.debug('Adding Project Index')
     db.project.ensure_index('label', unique=True)
@@ -47,11 +37,23 @@ def ensure_indexes():
     logger.debug('Adding Alignment Index')
     db.alignment.ensure_index('name', unique=True)
 
+    # Genome
+    logger.debug('Adding Genome Indices')
+    db.genome.ensure_index('gi', unique=True)
+    db.genome.ensure_index('accession', unique=True)
+    db.genome.ensure_index('pending', sparse=True)
+
+    # Feature
+    logger.debug('Adding Feature Indices')
+    db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
+    db.feature.ensure_index('genome')
+    db.feature.ensure_index('start')
+
     # Mapped
     logger.debug('Adding Mapped Indices')
     db.mapped.ensure_index('refStart')
-    db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
-    db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
 
     # User
@@ -67,7 +69,7 @@ def ensure_indexes():
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
 
     # GridFS
-    db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
+    #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
 
 def genome_samples():
     '''Calculate how many samples hit the genomes'''

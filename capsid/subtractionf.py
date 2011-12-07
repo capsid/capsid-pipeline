@@ -11,24 +11,27 @@
 
 
 from __future__ import division
-from itertools import count
+from itertools import count, ifilter, repeat
 from collections import namedtuple
 import re
+
+import multiprocessing
+from functools import partial
 
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
 
 from database import *
 
-
-Counter = namedtuple('Counter', ['xeno_mapped', 'ref_mapped', 'ref_unmapped'])
+Counter = namedtuple('Counter', ['xeno_mapped', 'ref_mapped', 'ref_unmapped', 'maps_gene'])
 GenomeIds = namedtuple('GenomeIds', ['gi', 'accession'])
 Meta = namedtuple('Meta', ['sample', 'alignment'])
 
 db = None
 logger = None
 meta = None
-counter = Counter(count(), count(), count())
+intersecters = {}
+counter = Counter(count(), count(), count(), count())
 regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
 
 
@@ -46,12 +49,33 @@ def get_meta(align_name):
     return Meta(sample, alignment)
 
 
+def extract_unmapped(align, fastaq):
+    '''Output unmapped alignments to FastaQ file'''
+
+    fastaq.write('@'+str(align.qname)+'\n'+str(align.seq)+'\n+\n'+str(align.qqual)+'\n')
+
+
 def maps_gene(mapped):
     '''Determine if the mapped alignment falls within a gene.'''
-    pass
+    global intersecters
+
+    try:
+        intersecter = intersecters[mapped['genome']]
+    except KeyError:
+        genes = db.feature.find({'genome': mapped['genome'], 'type': 'gene'})
+
+        intersecter = Intersecter()
+
+        # Interval end is exclusive, need to +1 to line up with actual position
+        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1))
+         for gene in genes]
+
+        intersecters[mapped['genome']] = intersecter
+
+    return intersecter.find(mapped['refStart'], mapped['refEnd'])
 
 
-def build_mapped(align, genome, reference=False):
+def build_mapped(align, genome, reference):
     '''Generates dict for mapped alignments'''
 
     scores = [ord(m)-33 for m in align.qqual]
@@ -65,16 +89,16 @@ def build_mapped(align, genome, reference=False):
         ref_end = align.aend or align.pos + align_length + 1
 
     try: mismatch = len(re.findall("\D", align.opt('MD')))
-    except KeyError: mismatch = align.alen or 0
+    except KeyError: mismatch = int(align.alen) or 0
 
     mapped = {
        "readId": align.qname
        , "refStrand": -1 if align.is_reverse else 1
-       , "refStart": align.pos + 1 # pysam is 0-based index
+       , "refStart": int(align.pos) + 1 # pysam is 0-based index
        , "refEnd": int(ref_end)
        , "alignLength": int(align_length)
-       , "readLength": align.rlen  # Total Length of the read
-       , "mapq": align.mapq
+       , "readLength": int(align.rlen)  # Total Length of the read
+       , "mapq": int(align.mapq)
        , "minQual": min(scores)
        , "avgQual": sum(scores) / len(scores)
        , "miscalls": align.qqual.count('.')
@@ -89,6 +113,7 @@ def build_mapped(align, genome, reference=False):
        }
 
     if maps_gene(mapped):
+        counter.maps_gene.next()
         mapped['mapsGene'] = 1
 
     if reference:
@@ -101,9 +126,9 @@ def get_genome(gid):
     '''Query database for genome using both gi and accession'''
 
     if gid.gi:
-        genome = db.Genome.one({'gi':int(gid.gi)}, {'_id':0, 'gi':1})
+        genome = gid.gi
     elif gid.accession:
-        genome = db.Genome.one({'acession':gid.accession}, {'_id':0, 'gi':1})
+        genome = db.genome.find_one({'accession':gid.accession}, {'_id':0, 'gi':1})['gi']
 
     return genome
 
@@ -114,41 +139,90 @@ def determine_genome(genome_header):
     result = regex.findall(genome_header)
 
     gids = [GenomeIds(r[0], r[2]) for r in result]
-    genome = filter(None, [get_genome(gid) for gid in gids]).pop()['gi']
+    genome = filter(None, [get_genome(gid) for gid in gids]).pop()
 
     return genome
 
-def insert_mapped(mapped):
+
+def insert_mapped(mapped, process):
     '''Insert mapped alignments into Database'''
 
-    #mapped.save(safe=False)
-    db.mapped.insert(mapped)
-    #return mapped.readId
+    if process in ['both', 'mapped']:
+        db.mapped.insert(mapped)
+
+    return mapped['readId']
 
 
-def extract_mapped(align, genome_header):
-    '''Process alignment to determine if valid'''
+def extract_mapped(align, bamfile, reference=False):
+    '''Process mapped alignment and return dict'''
 
-    genome = determine_genome(genome_header)
+    if not align.is_proper_pair or align.is_proper_pair and align.isize:
+        counter.xeno_mapped.next() if reference else counter.ref_mapped.next()
+        genome = determine_genome(bamfile.getrname(align.tid))
 
-    return build_mapped(align, genome)
+        return build_mapped(align, genome, reference)
 
 
-def parse_ref(f):
+def maps_xeno(align, readids):
+    '''Checks if alignment readId matches any in readids set'''
+
+    return align.qname in readids
+
+
+def extract_alignment(align, bamfile, readids, fastaq):
+    '''Process alignments '''
+
+    in_xeno = maps_xeno(align, readids)
+
+    if align.is_unmapped and not in_xeno:
+        counter.ref_unmapped.next()
+        extract_unmapped(align, fastaq)
+    elif not align.is_unmapped and in_xeno:
+        return extract_mapped(align, bamfile, True)
+
+
+def parse_ref(f, readids, process):
     '''Extract alignments from Reference BAM file'''
+    logger.info('Finding alignments in Reference BAM file...')
+    logger.debug('Reference BAM File: {0}'.format(f))
+
     bamfile = pysam.Samfile(f, 'rb')
-    pass
+    fastaq = open(meta.alignment.name + '.unmapped.fastaq', 'w') if process in ['both', 'unmapped'] else None
+
+    return ifilter(None, (extract_alignment(align, bamfile, readids, fastaq)
+                          for align in bamfile.fetch(until_eof=True)))
 
 
 def parse_xeno(f):
     '''Extract alignments from Xeno BAM file'''
+    logger.info('Finding alignments in Xeno BAM file...')
+    logger.debug('Xeno BAM File: {0}'.format(f))
 
     bamfile = pysam.Samfile(f, 'rb')
-    mapped = (extract_mapped(align, bamfile.getrname(align.tid)) for align in bamfile.fetch() if not align.is_proper_pair or align.is_proper_pair and align.isize > 0)
-    #ids = set(insert_mapped(align) for align in mapped)
-    [insert_mapped(align) for align in mapped]
 
-    return ids
+    return ifilter(None, (extract_mapped(align, bamfile)
+                          for align in bamfile.fetch()))
+
+
+def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
+    '''Logging summary of added records'''
+
+    # Counter starts at 0, so >it = count(); >print it.next(); >0
+    # Using counter.*.next here sets it to the correct value for printing.
+    xeno_mapped = counter.xeno_mapped.next()
+    ref_mapped = counter.ref_mapped.next()
+    ref_unmapped = counter.ref_unmapped.next()
+    maps_gene = counter.maps_gene.next()
+
+    total_mapped = xeno_mapped + ref_mapped if process in ['mapped', 'both'] else 0
+
+    logger.info('Total mapped alignments found in Xeno BAM file: {0}'.format(xeno_mapped))
+    logger.info('Total mapped alignments found in Reference BAM file: {0}'.format(ref_mapped))
+    logger.info('Total mapped alignments added to database: {0}'.format(total_mapped))
+    logger.info('Xeno reads that hit a gene ("mapsGene":1): {0}'.format(maps_gene))
+    logger.info('Reads that map to Xeno with unique Read IDs: {0}'.format(len(xeno_mapped_readids)))
+    logger.info('Reads that map to both Xeno and Reference with unique Read IDs: {0}'.format(len(intersecting_mapped_readids)))
+    logger.info('Unmapped alignments found in Reference BAM file: {0}'.format(ref_unmapped))
 
 
 def main(args):
@@ -158,11 +232,27 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
     meta = get_meta(args.align)
+    process = args.process
 
-    xeno_mapped_readids = parse_xeno(args.xeno)
+    pool_size = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(pool_size)
+    p_mapped = partial(insert_mapped, process=process)
 
-    #intersecting_mapped_readids = parse_ref(args.ref)
+    xeno_mapped = parse_xeno(args.xeno)
+    if process in ['both', 'mapped']:
+        logger.info('Inserting mapped alignments from Xeno BAM file...')
+    xeno_mapped_readids = set(pool.map(p_mapped, xeno_mapped))
 
+    ref_mapped = parse_ref(args.ref, xeno_mapped_readids, process)
+    if process is 'mapped':
+        logger.info('Inserting mapped alignments from Reference BAM file...')
+    elif process is 'unmapped':
+        logger.info('Outputting unmapped alignments from Reference BAM file...')
+    else:
+        logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
+    intersecting_mapped_readids = set(pool.map(p_mapped, ref_mapped))
+
+    summary(xeno_mapped_readids, intersecting_mapped_readids, process)
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid subtraction -h\n\tor\n\t$ /path/to/capsid/bin/capsid subtraction -h'

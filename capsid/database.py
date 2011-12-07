@@ -24,9 +24,6 @@ class Project(Document):
         , "role": [basestring]
         }
     use_dot_notation = True
-    indexes = [
-        {'fields': 'label', 'unique': True}
-        ]
 
 class Sample(Document):
     __collection__ = 'sample'
@@ -39,10 +36,6 @@ class Sample(Document):
         , "source": basestring
         }
     use_dot_notation = True
-    indexes = [
-        {'fields': 'name', 'unique': True}
-        , {'fields': 'project'}
-        ]
 
 class Alignment(Document):
     __collection__ = 'alignment'
@@ -57,9 +50,6 @@ class Alignment(Document):
         , "outfile": basestring
         }
     use_dot_notation = True
-    indexes = [
-        {'fields': 'name', 'unique': True}
-        ]
 
 class Genome(Document):
     __collection__ = 'genome'
@@ -76,11 +66,6 @@ class Genome(Document):
         }
     gridfs = {'files': ['sequence']}
     use_dot_notation = True
-    indexes = [
-        {'fields': 'gi', 'unique': True}
-        , {'fields': 'accession', 'unique': True}
-        , {'fields': 'pending'}
-        ]
 
 class Feature(Document):
     __collection__ = 'feature'
@@ -96,11 +81,6 @@ class Feature(Document):
         , "type": basestring
         }
     use_dot_notation = True
-    indexes = [
-        {'fields': 'genome'}
-        , {'fields': ['genome', 'type', 'strand']}
-        , {'fields': 'start'}
-        ]
 
 class Mapped(Document):
     __collection__ = 'mapped'
@@ -112,7 +92,7 @@ class Mapped(Document):
         , "refEnd": int
         , "alignLength": int
         , "readLength": int
-        , "mapq": long
+        , "mapq": int
         , "minQual": int
         , "avgQual": float
         , "miscalls": int
@@ -132,12 +112,6 @@ class Mapped(Document):
                        'mismatch', 'pairEnd', 'genome', 'project', 'sample',
                        'alignment', 'platform', 'sequencingType']
     use_dot_notation = True
-    indexes = [
-        {'fields': 'readId'}
-        , {'fields': ['genome', 'sample', 'mapsGene']}
-        , {'fields': ['genome', 'project', 'mapsGene']}
-        , {'fields': 'refStart'}
-        ]
 
 
 def connect(args):
