@@ -28,6 +28,9 @@ def subtraction_(args):
 def subtractionf_(args):
     capsid.subtractionf.main(args)
 
+def qfilter_(args):
+    capsid.qfilter.main(args)
+
 def statistics_(args):
     capsid.statistics.main(args)
 
@@ -43,9 +46,9 @@ if __name__ == '__main__':
 
     ### Configure #################################################################
     configure_parser = subparsers.add_parser('configure',
-                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                         description='CaPSID Configuration\n\nExample\n\tcapsid configure',
-                                         help='Configure CaPSID')
+                                             formatter_class=argparse.RawDescriptionHelpFormatter,
+                                             description='CaPSID Configuration\n\nExample\n\tcapsid configure',
+                                             help='Configure CaPSID')
     # MongoDB settings
     mongo = configure_parser.add_argument_group('MongoDB Settings', 'Values set through the commandline will not be prompted for during setup')
     mongo.add_argument('--host', metavar='h', default=None, help='MongoDB Server address')
@@ -62,9 +65,9 @@ if __name__ == '__main__':
 
     ### GenBank Loader ########################################################
     gbloader_parser = subparsers.add_parser('gbloader',
-                                           formatter_class=argparse.RawDescriptionHelpFormatter,
-                                           description='GenBank Loader\n\nExample:\n\tcapsid gbloader gb1.gbff gb2.gbff',
-                                           help='GenBank Loader')
+                                            formatter_class=argparse.RawDescriptionHelpFormatter,
+                                            description='GenBank Loader\n\nExample:\n\tcapsid gbloader gb1.gbff gb2.gbff',
+                                            help='GenBank Loader')
     gbloader_parser.add_argument('files', metavar='F', nargs='+', help='List of GenBank files')
     gbloader_parser.add_argument('--repair', action='store_true', default=False, help='Overwrite existing Genomes instead of skipping them')
     ## Logging Options
@@ -96,9 +99,9 @@ if __name__ == '__main__':
 
     ### BAM Subtraction #######################################################
     subtract_parser = subparsers.add_parser('subtraction',
-                                           formatter_class=argparse.RawDescriptionHelpFormatter,
-                                           description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
-                                           help='BAM Subtraction')
+                                            formatter_class=argparse.RawDescriptionHelpFormatter,
+                                            description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
+                                            help='BAM Subtraction')
     subtract_parser.add_argument('xeno', help='Xeno BAM File')
     subtract_parser.add_argument('human', help='Human BAM File')
     subtract_parser.add_argument('align', help='Alignment Name from Database')
@@ -123,9 +126,9 @@ if __name__ == '__main__':
 
     ### BAM Subtraction #######################################################
     subtractf_parser = subparsers.add_parser('subtractionf',
-                                           formatter_class=argparse.RawDescriptionHelpFormatter,
-                                           description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
-                                           help='BAM Subtraction')
+                                             formatter_class=argparse.RawDescriptionHelpFormatter,
+                                             description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
+                                             help='BAM Subtraction')
     subtractf_parser.add_argument('xeno', help='Xeno BAM File')
     subtractf_parser.add_argument('ref', help='Reference BAM File')
     subtractf_parser.add_argument('align', help='Alignment Name from Database')
@@ -139,6 +142,21 @@ if __name__ == '__main__':
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='set logging output to DEBUG')
     # AutoRun
     subtractf_parser.set_defaults(func=subtractionf_)
+
+    ### qFilter  ###########################################################
+    qfilter_parser = subparsers.add_parser('qfilter',
+                                          formatter_class=argparse.RawDescriptionHelpFormatter,
+                                          description='Quality Filter\n\nExample\n\tcapsid qfilter single_end.fastq\n\tcapsid qfilter pair_end1.fastq pair_end2.fastq',
+                                          help='Quality Filter')
+    qfilter_parser.add_argument('single', help='single-end or first pair-end fastq file')
+    qfilter_parser.add_argument('pair',  nargs='?', help='second pair-end fastq file')
+    qfilter_parser.add_argument('threshold', help='quality threshold')
+    # Logging Options
+    verbose_debug = qfilter_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='set logging output to DEBUG')
+    # AutoRun
+    qfilter_parser.set_defaults(func=qfilter_)
 
     ### Statistics  ###########################################################
     stats_parser = subparsers.add_parser('statistics',

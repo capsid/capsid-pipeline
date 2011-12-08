@@ -49,10 +49,10 @@ def get_meta(align_name):
     return Meta(sample, alignment)
 
 
-def extract_unmapped(align, fastaq):
-    '''Output unmapped alignments to FastaQ file'''
+def extract_unmapped(align, fastq):
+    '''Output unmapped alignments to Fastq file'''
 
-    fastaq.write('@'+str(align.qname)+'\n'+str(align.seq)+'\n+\n'+str(align.qqual)+'\n')
+    fastq.write('@'+str(align.qname)+'\n'+str(align.seq)+'\n+\n'+str(align.qqual)+'\n')
 
 
 def maps_gene(mapped):
@@ -175,14 +175,14 @@ def maps_xeno(align, readids):
     return align.qname in readids
 
 
-def extract_alignment(align, bamfile, readids, fastaq):
+def extract_alignment(align, bamfile, readids, fastq):
     '''Process alignments '''
 
     in_xeno = maps_xeno(align, readids)
 
-    if align.is_unmapped and not in_xeno and fastaq:
+    if align.is_unmapped and not in_xeno and fastq:
         counter.ref_unmapped.next()
-        extract_unmapped(align, fastaq)
+        extract_unmapped(align, fastq)
     elif not align.is_unmapped and in_xeno:
         return extract_mapped(align, bamfile, True)
 
@@ -193,9 +193,9 @@ def parse_ref(f, readids, process):
     logger.debug('Reference BAM File: {0}'.format(f))
 
     bamfile = pysam.Samfile(f, 'rb')
-    fastaq = open(meta.alignment.name + '.unmapped.fastaq', 'w') if process in ['both', 'unmapped'] else None
+    fastq = open(meta.alignment.name + '.unmapped.fastq', 'w') if process in ['both', 'unmapped'] else None
 
-    return ifilter(None, (extract_alignment(align, bamfile, readids, fastaq)
+    return ifilter(None, (extract_alignment(align, bamfile, readids, fastq)
                           for align in bamfile.fetch(until_eof=True)))
 
 

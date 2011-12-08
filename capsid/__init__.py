@@ -12,7 +12,7 @@
 import logging, logging.handlers
 import os, sys, errno, ConfigParser
 
-import configure, sam2bam, gbloader, subtraction, subtractionf, statistics, fasta
+import configure, qfilter, gbloader, subtraction, subtractionf, statistics, fasta
 
 
 def connect(args):
@@ -86,7 +86,7 @@ def log_exception(exc_type, exc_value, traceback):
             '{0}: {1}'.format(exc_type.__name__, exc_value),
             exc_info=(exc_type, exc_value, traceback),
             )
-sys.excepthook = log_exception
+#sys.excepthook = log_exception
 
 
 def get_version(v):
