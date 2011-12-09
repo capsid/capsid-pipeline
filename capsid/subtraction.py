@@ -236,7 +236,7 @@ def parse_human(f, mapped_ids, meta, lookup, fetch, alignment):
             unmapped.append(_unmapped(align, meta))
             # When it gets too big insert and clear
             if len(unmapped) >= 100:
-                db.unmapped.insert(unmapped)
+                #db.unmapped.insert(unmapped)
                 unmapped = []
         elif fetch_mapped:
             # Returns the genome Id from the DB - will return None if a Junction
@@ -258,10 +258,10 @@ def parse_human(f, mapped_ids, meta, lookup, fetch, alignment):
     except:
         pass
 
-    try:
-        db.unmapped.insert(unmapped)
-    except:
-        pass
+    #try:
+    #    db.unmapped.insert(unmapped)
+    #except:
+    #    pass
 
     logger.debug('Exiting _parse_human')
     return intersecting_mapped_ids
