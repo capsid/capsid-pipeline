@@ -245,9 +245,6 @@ def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
     logger.info('Unmapped alignments found in Reference BAM file: {0}'.format(ref_unmapped))
 
 
-def nothing(item):
-    return None
-
 def main(args):
     ''' '''
     global db, logger, meta, mapq
@@ -257,15 +254,15 @@ def main(args):
     mapq = int(args.filter)
     process = args.process
 
-    #pool_size = multiprocessing.cpu_count()
-    #pool = multiprocessing.Pool(pool_size)
+    pool_size = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(pool_size)
 
     p_mapped = partial(insert_mapped, process=process)
 
     xeno_mapped = parse_xeno(args.xeno)
     if process in ['both', 'mapped']:
         logger.info('Inserting mapped alignments from Xeno BAM file...')
-    xeno_mapped_readids = set(map(p_mapped, xeno_mapped))
+    xeno_mapped_readids = set(pool.map(p_mapped, xeno_mapped))
 
     ref_mapped = parse_ref(args.ref, xeno_mapped_readids, process)
     if process == 'mapped':
@@ -274,7 +271,7 @@ def main(args):
         logger.info('Outputting unmapped alignments from Reference BAM file...')
     else:
         logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
-    intersecting_mapped_readids = set(map(p_mapped, ref_mapped))
+    intersecting_mapped_readids = set(pool.map(p_mapped, ref_mapped))
 
     summary(xeno_mapped_readids, intersecting_mapped_readids, process)
 
