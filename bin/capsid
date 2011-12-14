@@ -31,6 +31,9 @@ def subtractionf_(args):
 def qfilter_(args):
     capsid.qfilter.main(args)
 
+def intersect_(args):
+    capsid.intersect.main(args)
+
 def statistics_(args):
     capsid.statistics.main(args)
 
@@ -174,6 +177,23 @@ if __name__ == '__main__':
     # AutoRun
     stats_parser.set_defaults(func=statistics_)
 
+    ### Intersection  ########################################################
+    int_parser = subparsers.add_parser('intersect',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Intersection\n\nExample\n\tcapsid intersect f1.fastq f2.fastq f3.fastq',
+                                         help='Intersection')
+
+    # Fastq Files
+    int_parser.add_argument('primer', metavar='F', help='Fastq file')
+    int_parser.add_argument('files', metavar='F', nargs='+', help='List of Fastq files')
+
+    # Logging Options
+    verbose_debug = int_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+
+    # AutoRun
+    int_parser.set_defaults(func=intersect_)
 
     ### Run ###
     args = parser.parse_args()
