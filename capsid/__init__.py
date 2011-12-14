@@ -15,30 +15,6 @@ import os, sys, errno, ConfigParser
 import configure, qfilter, gbloader, subtraction, subtractionf, statistics, fasta
 
 
-def connect(args):
-    '''Connects to MongoDB using settings from the config file. Exits if no connection can be made.'''
-
-    import pymongo
-
-    logger = args.logging.getLogger(__name__)
-
-    config = ConfigParser.ConfigParser()
-    config.read(os.path.expanduser('~/.capsid/capsid.cfg'))
-
-    address = config.get('MongoDB', 'host')
-    port = int(config.get('MongoDB', 'port'))
-    db = config.get('MongoDB', 'database')
-    username = config.get('MongoDB', 'username')
-    password = config.get('MongoDB', 'password')
-
-    connection = pymongo.Connection(address, port)
-    admindb = connection.admin
-    admindb.authenticate(username, password)
-    logger.debug('Connecting to {0}:{1} ({2})'.format(address, port, db))
-
-    return connection[db]
-
-
 def chunks(l, n):
     '''Yield successive n-sized chunks from l.'''
 
@@ -86,7 +62,7 @@ def log_exception(exc_type, exc_value, traceback):
             '{0}: {1}'.format(exc_type.__name__, exc_value),
             exc_info=(exc_type, exc_value, traceback),
             )
-#sys.excepthook = log_exception
+sys.excepthook = log_exception
 
 
 def get_version(v):
