@@ -11,7 +11,7 @@
 
 
 from __future__ import division
-from itertools import count, ifilter
+from itertools import count, ifilter, imap
 from collections import namedtuple
 from functools import partial
 import multiprocessing
@@ -31,6 +31,7 @@ logger = None
 meta = None
 mapq = None
 intersecters = {}
+genomes = {}
 counter = Counter(count(), count(), count(), count())
 regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
 
@@ -139,7 +140,10 @@ def determine_genome(genome_header):
     result = regex.findall(genome_header)
 
     gids = [GenomeIds(r[0], r[2]) for r in result]
-    genome = filter(None, [get_genome(gid) for gid in gids]).pop()
+    try:
+        genome = filter(None, [get_genome(gid) for gid in gids]).pop()
+    except IndexError:
+        genome = None
 
     return genome
 
@@ -147,7 +151,7 @@ def determine_genome(genome_header):
 def insert_mapped(mapped, process):
     '''Insert mapped alignments into Database'''
 
-    if process in ['both', 'mapped']:
+    if mapped['genome'] and process in ['both', 'mapped']:
         db.mapped.insert(mapped)
 
     return mapped['readId']
@@ -161,12 +165,22 @@ def valid_mapped(align):
 
 def extract_mapped(align, bamfile, reference=False):
     '''Process mapped alignment and return dict'''
+    global genomes
 
     if align.mapq >= mapq and valid_mapped(align):
-        counter.xeno_mapped.next() if reference else counter.ref_mapped.next()
-        genome = determine_genome(bamfile.getrname(align.tid))
+        try:
+            genome = genomes[align.tid]
+        except KeyError:
+            genome = determine_genome(bamfile.getrname(align.tid))
+            if genome: genomes[align.tid] = genome
 
-        return build_mapped(align, genome, reference)
+        if genome:
+            counter.ref_mapped.next() if reference else counter.xeno_mapped.next()
+            mapped = build_mapped(align, genome, reference)
+        else:
+            mapped = {'readId': align.qname, 'genome': None}
+
+        return mapped
 
 
 def maps_xeno(align, readids):
@@ -242,6 +256,7 @@ def main(args):
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
+
     p_mapped = partial(insert_mapped, process=process)
 
     xeno_mapped = parse_xeno(args.xeno)

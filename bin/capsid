@@ -146,11 +146,12 @@ if __name__ == '__main__':
     ### qFilter  ###########################################################
     qfilter_parser = subparsers.add_parser('qfilter',
                                           formatter_class=argparse.RawDescriptionHelpFormatter,
-                                          description='Quality Filter\n\nExample\n\tcapsid qfilter single_end.fastq\n\tcapsid qfilter pair_end1.fastq pair_end2.fastq',
+                                          description='Quality Filter\n\nExample\n\tcapsid qfilter single_end.fastq 20\n\tcapsid qfilter pair_end1.fastq pair_end2.fastq 20',
                                           help='Quality Filter')
     qfilter_parser.add_argument('single', help='single-end or first pair-end fastq file')
     qfilter_parser.add_argument('pair',  nargs='?', help='second pair-end fastq file')
     qfilter_parser.add_argument('threshold', help='quality threshold')
+    qfilter_parser.add_argument('-l', '--limit ', metavar='int', dest='limit', default=3, help='Maximum number of bases allowed under quality threshold [default is 3]')
     # Logging Options
     verbose_debug = qfilter_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
