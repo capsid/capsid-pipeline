@@ -7,6 +7,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from __future__ import division
 from itertools import count, ifilter, izip, imap, repeat
 from collections import namedtuple
@@ -39,7 +40,7 @@ def make_fastq_file(f):
 
     logger.info('Generating filtered Fastq file...')
 
-    fq_sorted = open(f + '.collapsed')
+    fq_sorted = open(f + '.f.c.temp')
     fastq = open(fh, 'w')
 
     [fastq.write('{0}\n{1}\n{2}\n{3}'.format(*line.split('\t')))
@@ -48,10 +49,10 @@ def make_fastq_file(f):
 
 def collapse_file(f):
     ''' '''
-    fc = f + '.collapsed'
+    fc = f + '.f.c.temp'
     logger.debug('Collapsed File: {0}'.format(fc))
     logger.info('Collapsing {0}...'.format(fc))
-    os.system('sort -u ' + f + '.temp -o ' + fc)
+    os.system('sort -u ' + f + '.f.temp -o ' + fc)
 
 
 def sortable_output(record, fq_single, fq_pair):
@@ -74,11 +75,11 @@ def sortable_output(record, fq_single, fq_pair):
 
 def make_sortable_file(records, f_single, f_pair):
     ''' '''
-    ft_single = f_single + '.temp'
-    ft_pair = f_pair + '.temp' if f_pair else None
+    ft_single = f_single + '.f.temp'
+    ft_pair = f_pair + '.f.temp' if f_pair else None
 
-    logger.debug('Temp File: {0}'.format(ft_single))
-    if f_pair: logger.debug('Temp File: {0}'.format(ft_pair))
+    logger.debug('Temp Filtered File: {0}'.format(ft_single))
+    if f_pair: logger.debug('Temp Filtered File: {0}'.format(ft_pair))
 
     logger.info('Creating temporary files for collapsing...')
 
@@ -145,6 +146,17 @@ def parse_fastq(args):
     return ifilter(filter_reads, imap(Records._make, izip(fq1, fq2)))
 
 
+def clean_up(f):
+    '''Remove Temp files'''
+
+    if os.path.isfile(f + '.f.temp'):
+        logger.debug('Deleting {0}'.format(f + '.f.temp'))
+        os.remove(f + '.f.temp')
+    if os.path.isfile(f + '.f.c.temp'):
+        logger.debug('Deleting {0}'.format(f + '.f.c.temp'))
+        os.remove(f + '.f.c.temp')
+
+
 def summary(args):
     ''' '''
 
@@ -166,7 +178,7 @@ def summary(args):
 
 def main(args):
     ''' '''
-    global db, logger, threshold, limit
+    global logger, threshold, limit
 
     logger = args.logging.getLogger(__name__)
     threshold = int(args.threshold)
@@ -174,7 +186,13 @@ def main(args):
 
     records = parse_fastq(args)
     sort_unique(records, args)
+
+    logger.info('Removing temporary files...')
+    clean_up(clean_ext(args.single))
+    if args.pair: clean_up(clean_ext(args.pair))
+
     summary(args)
+
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid qfilter -h\n\tor\n\t$ /path/to/capsid/bin/capsid qfilter -h'
