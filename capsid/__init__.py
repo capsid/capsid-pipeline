@@ -75,4 +75,4 @@ def get_version(v):
             version = "{0}.dev{1}".format(version, v[5])
     return version
 
-__version__ = get_version((1, 2, 0, "a", 3, 0))
+__version__ = get_version((1, 2, 0, "b", 1, 0))
