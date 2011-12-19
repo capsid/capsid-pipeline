@@ -186,9 +186,7 @@ def parse_gb_file(f, repair):
 
     with open(f, 'rU') as fh:
         pending_genomes = get_pending_genomes() if not repair else []
-        print repair
         saved_genomes = get_saved_genomes() if not repair else []
-        print saved_genomes
         [parse_record(r, saved_genomes, pending_genomes, repair) for r in SeqIO.parse(fh, 'gb')]
         summary()
 
