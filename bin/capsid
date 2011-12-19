@@ -139,6 +139,13 @@ if __name__ == '__main__':
     subtractf_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
     # MapQ score filter
     subtractf_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
+    # Lookup Options
+    #lookupf = subtractf_parser.add_mutually_exclusive_group('Options for the lookup file.', 'Format: --reflookup path/to/lookup_file.csv lookup_column')
+    lookupf = subtractf_parser.add_mutually_exclusive_group()
+    lookupf.add_argument('-l', '--lookup', metavar=('file', 'column'), nargs=2, default=None)
+    lookupf.add_argument('-rl', '--ref_lookup', metavar=('file', 'column'), nargs=2, default=[None, None])
+    lookupf.add_argument('-xl', '--xeno_lookup', metavar=('file', 'column'), nargs=2, default=[None, None])
+
     # Logging Options
     verbose_debug = subtractf_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')

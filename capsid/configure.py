@@ -16,7 +16,7 @@ import os
 import base64
 import ConfigParser
 
-import capsid
+from database import *
 
 db, logger = None, None
 
@@ -109,7 +109,7 @@ def main(args):
     # Setup config files
     setup_config(args)
 
-    db = capsid.connect(args)
+    db = connect(args)
 
     # Add all req indexes to MongoDB
     logger.info('Setting up MongoDB...')
