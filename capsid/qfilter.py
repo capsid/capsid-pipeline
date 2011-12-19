@@ -35,6 +35,7 @@ def clean_ext(name):
 
 def make_fastq_file(f):
     '''Turn 1-lined sorted temp file into fastq format'''
+
     fh = f + '.quality.fastq'
     logger.debug('Filtered Fastq: {0}'.format(fh))
 
@@ -49,6 +50,7 @@ def make_fastq_file(f):
 
 def collapse_file(f):
     ''' '''
+
     fc = f + '.f.c.temp'
     logger.debug('Collapsed File: {0}'.format(fc))
     logger.info('Collapsing {0}...'.format(fc))
@@ -75,6 +77,7 @@ def sortable_output(record, fq_single, fq_pair):
 
 def make_sortable_file(records, f_single, f_pair):
     ''' '''
+
     ft_single = f_single + '.f.temp'
     ft_pair = f_pair + '.f.temp' if f_pair else None
 
@@ -137,11 +140,12 @@ def filter_reads(records):
 
 def parse_fastq(args):
     ''' '''
+
     s = 'pair end' if args.pair else 'single end'
     logger.info('Reading Fastq files as {}...'.format(s))
 
-    fq1 = SeqIO.parse(open(args.single, 'rU'), 'fastq')
-    fq2 = SeqIO.parse(open(args.pair, 'rU'), 'fastq') if args.pair else repeat(None)
+    fq1 = SeqIO.parse(open(args.single, 'rU'), args.format)
+    fq2 = SeqIO.parse(open(args.pair, 'rU'), args.format) if args.pair else repeat(None)
 
     return ifilter(filter_reads, imap(Records._make, izip(fq1, fq2)))
 
@@ -183,7 +187,7 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     threshold = int(args.threshold)
     limit = int(args.limit)
-
+    args.format = 'fastq-' + 'sanger'
     records = parse_fastq(args)
     sort_unique(records, args)
 
