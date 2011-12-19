@@ -25,7 +25,7 @@ def read(*path):
 VERSION = '1.2b1'
 README = read('README')
 NEWS = read('NEWS.rst')
-install_requires = ['cython', 'numpy', 'pysam', 'pymongo', 'biopython', 'bx-python']
+install_requires = ['cython', 'numpy', 'pysam', 'pymongo', 'biopython', 'bx-python', 'mongokit']
 
 if sys.version_info < (2, 7):
     install_requires.append('argparse')
