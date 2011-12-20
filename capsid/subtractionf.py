@@ -145,11 +145,13 @@ def get_genome(gid):
 def build_lookup(column, header, gid):
     ''' '''
     global genomes
-
     gids = {'gi': None, 'accession': None}
     gids[column] = gid
 
-    try: genomes[str(header)] = get_genome(gids)
+    try:
+        genome = get_genome(gids)
+        if genome:
+            genomes[str(header)] = genome
     except ValueError: pass
 
 
@@ -157,11 +159,11 @@ def genome_lookup(lookup):
     ''' '''
     global genomes
     logger.info('Building Lookup Table...')
-    logger.debug('Lookup file {} using {}'.format(lookup.file, lookup.column))
+    logger.debug('Lookup file {} using {} as bridge'.format(lookup.file, lookup.column))
 
     genomes = {} # Remove any old values before re-populating
     with open(lookup.file, 'rU') as fh:
-        [build_lookup(lookup.column, *line.strip().split(';')) for line in fh.readlines()]
+        [build_lookup(lookup.column, *line.strip().split(';')) for line in fh]
 
 
 def determine_genome(genome_header):
@@ -237,12 +239,14 @@ def extract_alignment(align, bamfile, readids, fastq):
 def parse_ref(args, readids, process):
     '''Extract alignments from Reference BAM file'''
     global genomes
-    logger.info('Finding alignments in Reference BAM file...')
-    logger.debug('Reference BAM File: {0}'.format(args.ref))
 
     if args.lookup.ref.file: genome_lookup(args.lookup.ref)
 
+    logger.info('Finding alignments in Reference BAM file...')
+    logger.debug('Reference BAM File: {0}'.format(args.ref))
+
     bamfile = pysam.Samfile(args.ref, 'rb')
+
     fastq = open(meta.alignment.name + '.unmapped.fastq', 'w') if process in ['both', 'unmapped'] else None
 
     return ifilter(None, (extract_alignment(align, bamfile, readids, fastq)
@@ -252,13 +256,13 @@ def parse_ref(args, readids, process):
 def parse_xeno(args):
     '''Extract alignments from Xeno BAM file'''
     global genomes
-    logger.info('Finding alignments in Xeno BAM file...')
-    logger.debug('Xeno BAM File: {0}'.format(args.xeno))
 
     if args.lookup.xeno.file: genome_lookup(args.lookup.xeno)
 
-    bamfile = pysam.Samfile(args.xeno, 'rb')
+    logger.info('Finding alignments in Xeno BAM file...')
+    logger.debug('Xeno BAM File: {0}'.format(args.xeno))
 
+    bamfile = pysam.Samfile(args.xeno, 'rb')
     return ifilter(None, (extract_mapped(align, bamfile)
                           for align in bamfile.fetch()))
 
@@ -301,15 +305,15 @@ def main(args):
     mapq = int(args.filter)
     process = args.process
 
-    pool_size = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(pool_size)
+    #pool_size = multiprocessing.cpu_count()
+    #pool = multiprocessing.Pool(pool_size)
 
     p_mapped = partial(insert_mapped, process=process)
 
     xeno_mapped = parse_xeno(args)
     if process in ['both', 'mapped']:
         logger.info('Inserting mapped alignments from Xeno BAM file...')
-    xeno_mapped_readids = set(pool.map(p_mapped, xeno_mapped))
+    xeno_mapped_readids = set(map(p_mapped, xeno_mapped))
 
     ref_mapped = parse_ref(args, xeno_mapped_readids, process)
     if process == 'mapped':
@@ -318,7 +322,7 @@ def main(args):
         logger.info('Outputting unmapped alignments from Reference BAM file...')
     else:
         logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
-    intersecting_mapped_readids = set(pool.map(p_mapped, ref_mapped))
+    intersecting_mapped_readids = set(map(p_mapped, ref_mapped))
 
     summary(xeno_mapped_readids, intersecting_mapped_readids, process)
 
