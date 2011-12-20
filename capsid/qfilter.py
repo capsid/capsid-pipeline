@@ -12,6 +12,7 @@ from __future__ import division
 from itertools import count, ifilter, izip, imap, repeat
 from collections import namedtuple
 import os
+import subprocess
 
 from Bio import SeqIO
 
@@ -22,6 +23,7 @@ Counter = namedtuple('Counter', ['records', 'saved'])
 logger = None
 threshold = None
 limit = None
+temp = None
 counter = Counter(count(), count())
 
 
@@ -54,7 +56,7 @@ def collapse_file(f):
     fc = f + '.f.c.temp'
     logger.debug('Collapsed File: {0}'.format(fc))
     logger.info('Collapsing {0}...'.format(fc))
-    os.system('sort -u ' + f + '.f.temp -o ' + fc)
+    subprocess.call(['sort', '-u', '-T', temp, f + '.f.temp', '-o', fc])
 
 
 def sortable_output(record, fq_single, fq_pair):
@@ -182,12 +184,15 @@ def summary(args):
 
 def main(args):
     ''' '''
-    global logger, threshold, limit
+    global logger, temp, threshold, limit
 
     logger = args.logging.getLogger(__name__)
+    temp = args.temp
     threshold = int(args.threshold)
     limit = int(args.limit)
+
     args.format = 'fastq-' + 'sanger'
+
     records = parse_fastq(args)
     sort_unique(records, args)
 

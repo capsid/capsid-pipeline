@@ -9,18 +9,15 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import shutil
 import subprocess
 
 logger = None
-
+temp = None
 
 def clean_ext(name):
     '''Pull off extension'''
 
-    f = name.rpartition('.')
-
-    return f[0]
+    return name.rpartition('.')[0]
 
 
 def collapse_file(f, name):
@@ -28,7 +25,9 @@ def collapse_file(f, name):
     logger.info('Collapsing {0}...'.format(f))
     logger.debug('Collapsed {0} saved as {1}'.format(f, name))
 
-    os.system('awk \'ORS=NR%4?"\\t":"\\n"\' {0} | sort -u -o {1}'.format(f, name))
+    p1 = subprocess.Popen(['awk', 'ORS=NR%4?"\\t":"\\n"', f], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(['sort', '-u', '-T', temp, '-o', name], stdin=p1.stdout, stdout=None)
+    p1.stdout.close()
 
 
 def intersect_files(f):
@@ -38,10 +37,11 @@ def intersect_files(f):
 
     logger.info('Intersecting with {0}...'.format(f))
     logger.debug('Intersecting reads output to out.fq')
-    os.system('comm -12 saved.fq temp.fq > out.fq')
+
+    subprocess.call(['comm -12 saved.fq temp.fq > out.fq'], shell=True)
 
     logger.debug('out.fq moved to saved.fq')
-    shutil.move('out.fq', 'saved.fq')
+    os.rename('out.fq', 'saved.fq')
 
 
 def finalize(args):
@@ -53,28 +53,27 @@ def finalize(args):
         os.remove('temp.fq')
 
     files = args.files
-    files.insert(0, args.primer)
     f = '_'.join([clean_ext(f) for f in files]) + '.intersect.fastq'
 
     if os.path.isfile('saved.fq'):
         logger.info('Saving intersecting reads to {0}...'.format(f))
-        os.system('tr "\t" "\n" < saved.fq > {0}'.format(f))
+        subprocess.call(['tr "\t" "\n" < saved.fq > {0}'.format(f)], shell=True)
         logger.debug('Deleting saved.fq...')
         os.remove('saved.fq')
 
 
 def main(args):
     ''' '''
-    global logger
+    global logger, temp
 
     logger = args.logging.getLogger(__name__)
+    temp = args.temp
 
-    collapse_file(args.primer, 'saved.fq')
-    map(intersect_files, args.files)
+    collapse_file(args.files[0], 'saved.fq')
+    map(intersect_files, args.files[1:])
 
     p = subprocess.Popen(["wc", "-l", "saved.fq"], stdout=subprocess.PIPE)
-    val, err = p.communicate()
-    reads = int(val.partition(' ')[0])
+    reads = p.communicate()[0].partition(' ')[0]
 
     finalize(args)
 
