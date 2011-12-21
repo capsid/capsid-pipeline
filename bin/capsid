@@ -163,7 +163,7 @@ if __name__ == '__main__':
     qfilter_parser.add_argument('-l', '--limit', metavar='int', dest='limit', default=3, help='Maximum number of bases allowed under quality threshold [default is 3]')
     qfilter_parser.add_argument('-f', '--format', metavar='fastq_format', dest='format', choices=['illumina', 'sanger'], default='sanger', help='Sanger style FASTQ files which encode PHRED qualities using an ASCII offset of 33. Solexa/Illumina style FASTQ files (from pipeline version 1.3 to 1.7) which encode PHRED qualities using an ASCII offset of 64 {[sanger], illumina}')
     # Temp DIR for sorting
-    int_parser.add_argument('-t', '--temp', metavar='DIR', default='.', help='temp dir used for sorting')
+    qfilter_parser.add_argument('-t', '--temp', metavar='DIR', default='.', help='temp dir used for sorting')
     # Logging Options
     verbose_debug = qfilter_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
