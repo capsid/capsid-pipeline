@@ -51,6 +51,13 @@ def get_meta(align_name):
     return Meta(sample, alignment)
 
 
+def update_isref(readId):
+    ''' '''
+
+    db.mapped.update({'readId': readId, 'alignment':meta.alignment.name},
+                     {'$set': {'isHuman': 1}}, False, False, False, True)
+
+
 def extract_unmapped(align, fastq):
     '''Output unmapped alignments to Fastq file'''
 
@@ -117,6 +124,7 @@ def build_mapped(align, genome, reference):
        , "alignment": meta.alignment.name
        , "platform": meta.alignment.platform
        , "sequencingType": meta.alignment.type
+       , "sequence": align.query
        }
 
     if maps_gene(mapped):
@@ -323,6 +331,9 @@ def main(args):
     else:
         logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
     intersecting_mapped_readids = set(map(p_mapped, ref_mapped))
+
+    logger.info('Updating reads that map in both Xeno and Reference...')
+    map(update_isref, intersecting_mapped_readids)
 
     summary(xeno_mapped_readids, intersecting_mapped_readids, process)
 
