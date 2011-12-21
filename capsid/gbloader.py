@@ -42,8 +42,10 @@ def extract_sequence(record, genome, delete=False):
 
     if valid_seq(record):
         counter.sequences.next()
-        if delete: genome.fs.delete(genome.gi)
-        genome.fs.put(record.seq.tostring(), _id=genome.gi, filename='sequence', chunkSize=80)
+        if delete:
+            seq_id = genome.fs.get_last_version(genome.gi)._id
+            genome.fs.delete(seq_id)
+        genome.fs.put(record.seq.tostring(), filename=str(genome.gi), chunkSize=80)
 
 
 def get_qualifiers(qualifiers):
