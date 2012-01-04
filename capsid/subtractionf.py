@@ -55,7 +55,7 @@ def update_isref(readId):
     ''' '''
 
     db.mapped.update({'readId': readId, 'alignment':meta.alignment.name},
-                     {'$set': {'isHuman': 1}}, False, False, False, True)
+                     {'$set': {'isRef': 1}}, False, False, False, True)
 
 
 def extract_unmapped(align, fastq):
