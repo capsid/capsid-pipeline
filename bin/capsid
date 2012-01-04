@@ -25,9 +25,6 @@ def fasta_(args):
 def subtraction_(args):
     capsid.subtraction.main(args)
 
-def subtractionf_(args):
-    capsid.subtractionf.main(args)
-
 def qfilter_(args):
     capsid.qfilter.main(args)
 
@@ -102,55 +99,28 @@ if __name__ == '__main__':
 
     ### BAM Subtraction #######################################################
     subtract_parser = subparsers.add_parser('subtraction',
-                                            formatter_class=argparse.RawDescriptionHelpFormatter,
-                                            description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
-                                            help='BAM Subtraction')
-    subtract_parser.add_argument('xeno', help='Xeno BAM File')
-    subtract_parser.add_argument('human', help='Human BAM File')
-    subtract_parser.add_argument('align', help='Alignment Name from Database')
-    # Lookup Table
-    lookup = subtract_parser.add_argument_group('Options for the lookup file.', 'Format: --lookup_option xeno_option human_option')
-    lookup.add_argument('-lm', '--lookup_method', choices=['default', 'fasta', 'custom', 'None'], nargs=2, default=['default', 'default'], metavar='M', help='Methods used to map BAM Genome Ids to the DB {[default], fasta, custom}')
-    lookup.add_argument('-lf', '--lookup_file', metavar='F', nargs=2, default=[None, None], help='Files needed for Genome ID mapping')
-    lookup.add_argument('-lc', '--lookup_column', choices=['accession','gi', 'None'], nargs=2, default=['gi', 'gi'], metavar='C', help='Database Column to be compare for Genome ID mapping')
-    lookup.add_argument('-ls', '--lookup_separator', choices=[',',';',':','\t', 'None'], nargs=2, default=[';', ';'], metavar='S', help='Separator values - escape using a backslash(\\)')
-    # Unmapped
-    fetch = subtract_parser.add_mutually_exclusive_group()
-    fetch.add_argument('-u', '--unmapped', action='store_true', default=False, help='Flag to save unmapped reads')
-    fetch.add_argument('-ou', '--only_unmapped', action='store_true', default=False, help='Flag to save ONLY unmapped reads')
-    # single end or pair-end reads
-    subtract_parser.add_argument('-pe', '--pair_end', action='store_true', default=False, help='Treat reads as pair-end')
-    # Logging Options
-    verbose_debug = subtract_parser.add_mutually_exclusive_group()
-    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
-    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
-    # AutoRun
-    subtract_parser.set_defaults(func=subtraction_)
-
-    ### BAM Subtraction #######################################################
-    subtractf_parser = subparsers.add_parser('subtractionf',
                                              formatter_class=argparse.RawDescriptionHelpFormatter,
                                              description='BAM Alignment Loader\n\nExample:\n\tcapsid subtraction xeno_file.bam ref_file.bam alignmentName',
                                              help='BAM Subtraction')
-    subtractf_parser.add_argument('xeno', help='Xeno BAM File')
-    subtractf_parser.add_argument('ref', help='Reference BAM File')
-    subtractf_parser.add_argument('align', help='Alignment Name from Database')
+    subtract_parser.add_argument('xeno', help='Xeno BAM File')
+    subtract_parser.add_argument('ref', help='Reference BAM File')
+    subtract_parser.add_argument('align', help='Alignment Name from Database')
     # Process Mapped/Unmapped/Both
-    subtractf_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
+    subtract_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
     # MapQ score filter
-    subtractf_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
+    subtract_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
     # Lookup Options
-    lookupf = subtractf_parser.add_mutually_exclusive_group()
+    lookupf = subtract_parser.add_mutually_exclusive_group()
     lookupf.add_argument('-l', '--lookup', metavar=('file', 'column'), nargs=2, default=None)
     lookupf.add_argument('-rl', '--ref_lookup', metavar=('file', 'column'), nargs=2, default=[None, None])
     lookupf.add_argument('-xl', '--xeno_lookup', metavar=('file', 'column'), nargs=2, default=[None, None])
 
     # Logging Options
-    verbose_debug = subtractf_parser.add_mutually_exclusive_group()
+    verbose_debug = subtract_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='set logging output to DEBUG')
     # AutoRun
-    subtractf_parser.set_defaults(func=subtractionf_)
+    subtract_parser.set_defaults(func=subtraction_)
 
     ### qFilter  ###########################################################
     qfilter_parser = subparsers.add_parser('qfilter',
