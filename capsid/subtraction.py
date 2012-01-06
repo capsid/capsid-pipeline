@@ -97,8 +97,11 @@ def build_mapped(align, genome, reference):
         align_length = align.alen
         ref_end = align.aend or align.pos + align_length + 1
 
-    try: mismatch = len(re.findall("\D", align.opt('MD')))
+    try:
+        MD = align.opt('MD')
+        mismatch = len(re.findall("\D", MD))
     except KeyError:
+        MD = ''
         try: mismatch = int(align.rlen)
         except TypeError:
             logger.debug(align)
@@ -125,6 +128,8 @@ def build_mapped(align, genome, reference):
        , "platform": meta.alignment.platform
        , "sequencingType": meta.alignment.type
        , "sequence": align.query
+       , "cigar": align.cigar
+       , "MD": MD
        }
 
     if maps_gene(mapped):

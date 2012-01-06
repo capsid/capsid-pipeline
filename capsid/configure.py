@@ -115,7 +115,7 @@ def main(args):
     logger.info('Setting up MongoDB...')
     logger.info('Adding Indices...')
     ensure_indexes()
-    logger.info('Adding JavaScript...')
+    logger.info('Adding JavaScript Functions...')
     genome_samples()
 
     logger.info('Done!')
