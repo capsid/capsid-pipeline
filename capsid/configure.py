@@ -77,7 +77,15 @@ def genome_samples():
     logger.debug('Deleting old GenomeSamples function...')
     del db.system_js.gs
     logger.debug('Adding GenomeSamples function...')
-    db.system_js.gs = "function() {genomes=db.genome.find({}, {_id:1}); genomes.forEach(function(g){ s=db.mapped.distinct('sample',{genomeId:g._id}); db.genome.update({_id:g._id}, {$set: {samples: s}});});}"
+    db.system_js.gs = """
+function() {
+  genomes=db.genome.find({}, {_id:0, gi:1});
+  genomes.forEach(function(g){
+    s=db.mapped.distinct('sample',{genome:g.gi});
+    db.genome.update({'gi':g.gi}, {$set: {samples: s}});
+  });
+}
+"""
 
 
 def setup_config(args):
