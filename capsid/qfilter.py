@@ -130,8 +130,6 @@ def valid_record(record):
     if not record:
         return
 
-    counter.records.next()
-
     scores = record.letter_annotations['phred_quality']
 
     return len(scores) == len(record.seq) and quality_check(scores)
@@ -139,6 +137,7 @@ def valid_record(record):
 
 def filter_reads(records):
     '''Filters out records if both fail test'''
+    counter.records.next()
     
     return valid_record(records.single) or valid_record(records.pair)
 
