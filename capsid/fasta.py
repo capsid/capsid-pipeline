@@ -19,7 +19,7 @@ def fasta_output(genome, out):
     '''Output Genome in Fasta format'''
 
     out.write('>gi|{gi}|ref|{accession}.{version}| {name}\n'.format(**genome))
-    [out.write('{0}\n'.format(line)) for line in genome.fs.get(genome.gi)]
+    [out.write('{0}\n'.format(line)) for line in genome.fs.get_last_version(str(genome.gi))] 
 
 
 def main(args):

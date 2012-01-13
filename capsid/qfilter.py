@@ -127,6 +127,9 @@ def qual_eq_seq(scores):
 
 def valid_record(record):
     '''Return True if the records passes all tests'''
+    if not record:
+        return
+
     counter.records.next()
 
     scores = record.letter_annotations['phred_quality']
@@ -136,7 +139,7 @@ def valid_record(record):
 
 def filter_reads(records):
     '''Filters out records if both fail test'''
-
+    
     return valid_record(records.single) or valid_record(records.pair)
 
 

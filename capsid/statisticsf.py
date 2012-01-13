@@ -16,7 +16,6 @@ from bx.intervals.intersection import Intersecter, Interval
 
 from database import *
 
-Saved = namedtuple('Saved', ['start', 'end'])
 
 db = None
 logger = None
