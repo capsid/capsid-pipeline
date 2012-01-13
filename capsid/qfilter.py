@@ -103,11 +103,12 @@ def sort_unique(records, args):
 
     make_sortable_file(records, f_single, f_pair)
 
-    collapse_file(f_single)
+    # Thinking about how best to do the collapsing
+    #collapse_file(f_single)
     make_fastq_file(f_single)
 
     if f_pair:
-        collapse_file(f_pair)
+        #collapse_file(f_pair)
         make_fastq_file(f_pair)
 
 
