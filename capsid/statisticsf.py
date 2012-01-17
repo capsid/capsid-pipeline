@@ -153,7 +153,7 @@ def build_project_stats(project, genome):
         ,  "genome": genome['name']
         ,  "label": project['label']
         ,  "project": project['name']
-        ,  "hits": genome_hit_count
+        ,  "genomeHits": genome_hit_count
         ,  "geneHits": gene_hit_count
         ,  "genomeCoverage": genome_coverage_percent
         ,  "geneCoverageAvg": gene_coverage_avg
