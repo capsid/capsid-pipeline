@@ -10,6 +10,7 @@
 
 from __future__ import division
 from collections import namedtuple
+from functools import partial
 import multiprocessing
 
 from bx.intervals.intersection import Intersecter, Interval
@@ -130,18 +131,22 @@ def genome_hits(col, value, genome):
 def build_project_stats(project, genome):
     '''Build dictionary containing all project converage statistiscs'''
 
-    genome_hits = get_genome_hits('project', project['label'], genome['gi'])
+    genome_hits_query = genome_hits('project', project['label'], genome['gi'])
     # Total number of hits on the genome
-    genome_hit_count = genome_hits.count()
-    print genome_hit_count
-    # Get the coverage of mapped alignments in the genome for that sample
-    genome_coverage = coverage(genome_hits, genome)
+    genome_hit_count = genome_hits_query.count()
+ 
+    # Don't bother continuing if there are no hits
+    if not genome_hit_count:
+        return None   
 
-    gene_hits = get_gene_hits('project', project['label'], genome['gi'])
+    # Get the coverage of mapped alignments in the genome for that sample
+    genome_coverage_percent = genome_coverage(genome_hits_query, genome)
+
+    gene_hits_query = gene_hits('project', project['label'], genome['gi'])
     # Total number of hits on just the genes of the genome
-    gene_hit_count = gene_hits.count()
+    gene_hit_count = gene_hits_query.count()
     # The average/max of the mean coverage on each gene
-    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits, genome)
+    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
 
     stats = {
         "accession": genome['accession']
@@ -150,7 +155,7 @@ def build_project_stats(project, genome):
         ,  "project": project['name']
         ,  "hits": genome_hit_count
         ,  "geneHits": gene_hit_count
-        ,  "genomeCoverage": genome_coverage
+        ,  "genomeCoverage": genome_coverage_percent
         ,  "geneCoverageAvg": gene_coverage_avg
         ,  "geneCoverageMax": gene_coverage_max
         }
@@ -198,13 +203,13 @@ def project_statistics(project):
     '''Calculate the statistics for a project'''
     logger.info('Calculating statistics for project: {0}'.format(project['name']))
 
-    genomes = db.genomes.find()
-
+    genomes = db.genome.find()
+    
     project_stats = (build_project_stats(project, genome) for genome in genomes)
     map(insert_stats, filter(None, project_stats))
 
 
-def sample_statistics(project, sample):
+def sample_statistics(sample, project):
     '''Calculate the statistics for a sample'''
     logger.debug('Calculating statistics for sample: {0}'.format(sample['name']))
 
@@ -219,8 +224,14 @@ def generate_statistics(project):
     samples = db.sample.find({"project": project['label']})
 
     project_statistics(project)
-    [sample_statistics(project, sample) for sample in samples]
 
+    pool_size = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(pool_size)
+    
+    p_statistics = partial(sample_statistics, project=project)
+    
+    pool.map(p_statistics, samples)
+    
 
 def main(args):
     '''Calculate Genome Coverage Statistics'''
