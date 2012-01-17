@@ -14,7 +14,6 @@ from __future__ import division
 from itertools import count, ifilter, imap
 from collections import namedtuple
 from functools import partial
-import multiprocessing
 import re
 
 import pysam
@@ -317,9 +316,6 @@ def main(args):
     meta = get_meta(args.align)
     mapq = int(args.filter)
     process = args.process
-
-    #pool_size = multiprocessing.cpu_count()
-    #pool = multiprocessing.Pool(pool_size)
 
     p_mapped = partial(insert_mapped, process=process)
 
