@@ -34,9 +34,6 @@ def intersect_(args):
 def statistics_(args):
     capsid.statistics.main(args)
 
-def statisticsf_(args):
-    capsid.statisticsf.main(args)
-
 
 if __name__ == '__main__':
     import argparse
@@ -158,21 +155,6 @@ if __name__ == '__main__':
     project.add_argument('projects', nargs='+', metavar="P", help="Project Label from Database")
     # AutoRun
     stats_parser.set_defaults(func=statistics_)
-
-    ### Statistics  ###########################################################
-    statsf_parser = subparsers.add_parser('statisticsf',
-                                         formatter_class=argparse.RawDescriptionHelpFormatter,
-                                         description='Statistics\n\nExample\n\tcapsid statistics proj_label_one proj_label_two',
-                                         help='Statistics')
-    # Logging Options
-    verbose_debug = statsf_parser.add_mutually_exclusive_group()
-    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
-    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
-    # Project Select
-    project = statsf_parser.add_argument_group('Project Select', 'Select which project(s) to update by passing the project label(s)')
-    project.add_argument('projects', nargs='+', metavar="P", help="Project Label from Database")
-    # AutoRun
-    statsf_parser.set_defaults(func=statisticsf_)
 
     ### Intersection  ########################################################
     int_parser = subparsers.add_parser('intersect',
