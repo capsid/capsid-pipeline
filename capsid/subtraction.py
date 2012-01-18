@@ -120,7 +120,7 @@ def build_mapped(align, genome, reference):
        , "miscalls": align.qqual.count('.')
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
-       , "genome": genome
+       , "genome": int(genome)
        , "project": meta.sample.project
        , "sample": meta.sample.name
        , "alignment": meta.alignment.name
@@ -146,7 +146,7 @@ def get_genome(gid):
     '''Query database for genome using both gi and accession'''
 
     if gid['gi']:
-        genome = gid['gi']
+        genome = int(gid['gi'])
     elif gid['accession']:
         try: genome = db.genome.find_one({'accession':gid['accession']},
                                          {'_id':0, 'gi':1})['gi']
@@ -213,12 +213,13 @@ def valid_mapped(align):
 def extract_mapped(align, bamfile, reference=False):
     '''Process mapped alignment and return dict'''
     global genomes
-    if (align.mapq >= mapq or 3 >= align.mapq >= 0) and valid_mapped(align):
+
+    if (0 <= align.mapq <= 3 or align.mapq >= mapq) and valid_mapped(align):
         try:
-            genome = genomes[str(align.tid)]
+            genome = genomes[str(bamfile.getrname(align.tid))]
         except KeyError:
             genome = determine_genome(bamfile.getrname(align.tid))
-            if genome: genomes[str(align.tid)] = genome
+            if genome: genomes[str(bamfile.getrname(align.tid))] = genome
 
         # If it doesn't map to a genome in the database, assume it is mapping to
         # a junction and just save as an intersecting readId
