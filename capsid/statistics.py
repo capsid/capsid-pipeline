@@ -106,7 +106,7 @@ def gene_coverage(query, genome):
 def gene_hits(col, value, genome):
     ''' '''
 
-    return db.mapped.find({col: value, "genome": genome, "mapsGene": 1},
+    return db.mapped.find({col: value, "genome": genome, "mapsGene": {'$exists':  True}},
                           {"_id":0, "refStart":1, "refEnd":1})
 
 

@@ -75,7 +75,7 @@ def maps_gene(mapped):
         intersecter = Intersecter()
 
         # Interval end is exclusive, need to +1 to line up with actual position
-        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1))
+        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1, gene['name']))
          for gene in genes]
 
         intersecters[mapped['genome']] = intersecter
@@ -131,9 +131,10 @@ def build_mapped(align, genome, reference):
        , "MD": MD
        }
 
-    if maps_gene(mapped):
+    mapped_genes = maps_gene(mapped)
+    if mapped_genes:
         counter.maps_gene.next()
-        mapped['mapsGene'] = 1
+        mapped['mapsGene'] = [gene.value for gene in mapped_genes]
 
     if reference:
         mapped['isRef'] = 1
