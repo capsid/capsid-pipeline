@@ -151,7 +151,7 @@ def parse_fastq(args):
     ''' '''
 
     s = 'pair end' if args.pair else 'single end'
-    logger.info('Reading Fastq files as {}...'.format(s))
+    logger.info('Reading FastQ files as {}...'.format(s))
 
     fq1 = SeqIO.parse(open(args.single, 'rU'), args.format)
     fq2 = SeqIO.parse(open(args.pair, 'rU'), args.format) if args.pair else repeat(None)
@@ -178,12 +178,19 @@ def summary(args):
     records = counter.records.next()
     saved = counter.saved.next()
 
+
     if records:
         percent = (saved/records) * 100
         logger.info('{0} filtered and saved to {1}.quality.fastq'.format(args.single, clean_ext(args.single)))
         if args.pair:
             logger.info('{0} collapsed and saved to {1}.quality.fastq'.format(args.pair, clean_ext(args.pair)))
-        logger.info('{0} of {1} ({2:.2f}%) records passed through filter'.format(saved, records, percent))
+        logger.info('{0} of {1} ({2:.2f}%) records passed filter.'.format(saved, records, percent))
+        if not args.pair:
+            p = subprocess.Popen(["wc", "-l", clean_ext(args.single) + ".quality.fastq"], stdout=subprocess.PIPE)
+            reads = int(p.communicate()[0].partition(' ')[0]) // 4
+            percent_c = (reads/saved) * 100
+            logger.info('{0} of {1} ({2:.2f}%) records left after collapsing.'.format(reads, saved, percent_c))
+            logger.info('{0} of {1} ({2:.2f}%) records saved.'.format(reads, records, (reads/records)*100))
     else:
         logger.warning('No records found.')
 
