@@ -56,7 +56,7 @@ def collapse_file(f):
     fc = f + '.f.c.temp'
     logger.debug('Collapsed File: {0}'.format(fc))
     logger.info('Collapsing {0}...'.format(fc))
-    subprocess.call(['sort', '-t\t', '-k2', '-u', '-T', temp, f + '.f.temp', '-o', fc])
+    subprocess.call(['sort', '-t\t', '+1', '-2', '-u', '-T', temp, f + '.f.temp', '-o', fc])
 
 
 def sortable_output(record, fq_single, fq_pair):
@@ -90,7 +90,9 @@ def make_sortable_file(records, f_single, f_pair):
 
     fh_single = open(ft_single, 'w')
     fh_pair = open(ft_pair, 'w') if f_pair else None
+    
     [sortable_output(record, fh_single, fh_pair) for record in records]
+    
     fh_single.close()
     if fh_pair: fh_pair.close()
 
@@ -177,12 +179,11 @@ def summary(args):
     saved = counter.saved.next()
 
     if records:
-        percent = (1 - saved/records) * 100
-        logger.info('{0} filterd and saved to {1}.quality.fastq'.format(args.single, clean_ext(args.single)))
+        percent = (saved/records) * 100
+        logger.info('{0} filtered and saved to {1}.quality.fastq'.format(args.single, clean_ext(args.single)))
         if args.pair:
             logger.info('{0} collapsed and saved to {1}.quality.fastq'.format(args.pair, clean_ext(args.pair)))
-        logger.info('{0} of {1} records saved'.format(saved, records))
-        logger.info('{0:.2f}% of records removed'.format(percent))
+        logger.info('{0} of {1} ({2:.2f}%) records passed through filter'.format(saved, records, percent))
     else:
         logger.warning('No records found.')
 
