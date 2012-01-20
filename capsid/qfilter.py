@@ -56,7 +56,7 @@ def collapse_file(f):
     fc = f + '.f.c.temp'
     logger.debug('Collapsed File: {0}'.format(fc))
     logger.info('Collapsing {0}...'.format(fc))
-    subprocess.call(['sort', '-u', '-T', temp, f + '.f.temp', '-o', fc])
+    subprocess.call(['sort', '-t$"\t"', '+1', '-2', '-u', '-T', temp, f + '.f.temp', '-o', fc])
 
 
 def sortable_output(record, fq_single, fq_pair):
@@ -103,11 +103,13 @@ def sort_unique(records, args):
 
     make_sortable_file(records, f_single, f_pair)
 
-    # Thinking about how best to do the collapsing
-    #collapse_file(f_single)
+    #collapse if not pair end
+    if not f_pair:
+        collapse_file(f_single)
     make_fastq_file(f_single)
 
     if f_pair:
+        # Thinking about how best to do the collapsing for pair end
         #collapse_file(f_pair)
         make_fastq_file(f_pair)
 
