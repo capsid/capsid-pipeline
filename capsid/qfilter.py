@@ -56,7 +56,7 @@ def collapse_file(f):
     fc = f + '.f.c.temp'
     logger.debug('Collapsed File: {0}'.format(fc))
     logger.info('Collapsing {0}...'.format(fc))
-    subprocess.call(['sort', '-t$"\t"', '+1', '-2', '-u', '-T', temp, f + '.f.temp', '-o', fc])
+    subprocess.call(['sort', '-t\t', '-k2', '-u', '-T', temp, f + '.f.temp', '-o', fc])
 
 
 def sortable_output(record, fq_single, fq_pair):
