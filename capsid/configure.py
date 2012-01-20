@@ -16,23 +16,13 @@ import os
 import base64
 import ConfigParser
 
-import capsid
+from database import *
 
 db, logger = None, None
 
 
 def ensure_indexes():
     '''Creates the MongoDB Indices needed to effeciently run CaPSID'''
-
-    # Genome
-    logger.debug('Adding Genome Indices')
-    db.genome.ensure_index('gi', unique=True)
-    db.genome.ensure_index('accession', unique=True)
-
-    # Feature
-    logger.debug('Adding Feature Indices')
-    db.feature.ensure_index([('genomeId', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
-    db.feature.ensure_index([('start', pymongo.ASCENDING)])
 
     # Project
     logger.debug('Adding Project Index')
@@ -47,11 +37,23 @@ def ensure_indexes():
     logger.debug('Adding Alignment Index')
     db.alignment.ensure_index('name', unique=True)
 
+    # Genome
+    logger.debug('Adding Genome Indices')
+    db.genome.ensure_index('gi', unique=True)
+    db.genome.ensure_index('accession', unique=True)
+    db.genome.ensure_index('pending', sparse=True)
+
+    # Feature
+    logger.debug('Adding Feature Indices')
+    db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
+    db.feature.ensure_index('genome')
+    db.feature.ensure_index('start')
+
     # Mapped
     logger.debug('Adding Mapped Indices')
-    db.alignment.ensure_index('refStart')
-    db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
-    db.mapped.ensure_index([('genomeId', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index('refStart')
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
 
     # User
@@ -66,13 +68,24 @@ def ensure_indexes():
     logger.debug('Adding UserRole Index')
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
 
+    # GridFS
+    #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
+
 def genome_samples():
     '''Calculate how many samples hit the genomes'''
 
     logger.debug('Deleting old GenomeSamples function...')
     del db.system_js.gs
     logger.debug('Adding GenomeSamples function...')
-    db.system_js.gs = "function() {genomes=db.genome.find({}, {_id:1}); genomes.forEach(function(g){ s=db.mapped.distinct('sample',{genomeId:g._id}); db.genome.update({_id:g._id}, {$set: {samples: s}});});}"
+    db.system_js.gs = """
+function() {
+  genomes=db.genome.find({}, {_id:0, gi:1});
+  genomes.forEach(function(g){
+    s=db.mapped.distinct('sample',{genome:g.gi});
+    db.genome.update({'gi':g.gi}, {$set: {samples: s}});
+  });
+}
+"""
 
 
 def setup_config(args):
@@ -104,13 +117,13 @@ def main(args):
     # Setup config files
     setup_config(args)
 
-    db = capsid.connect(args)
+    db = connect(args)
 
     # Add all req indexes to MongoDB
     logger.info('Setting up MongoDB...')
     logger.info('Adding Indices...')
     ensure_indexes()
-    logger.info('Adding JavaScript...')
+    logger.info('Adding JavaScript Functions...')
     genome_samples()
 
     logger.info('Done!')

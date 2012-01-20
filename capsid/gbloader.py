@@ -11,122 +11,112 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from itertools import count
+from collections import namedtuple
+import re
+
 from Bio import SeqIO
-from bson import ObjectId
 
-import capsid
-
-db, logger = None, None
+from database import *
 
 
-def upload(collection, data, chunk=100):
-    '''Inserts data into MongoDB in chunks rather than all at once.'''
+Qualifiers = namedtuple('Qualifiers', ['name', 'geneId', 'locusTag'])
+Counter = namedtuple('Counter', ['records', 'genomes', 'pending', 'features', 'sequences'])
 
-    for c in capsid.chunks(data, chunk):
-        db[collection].insert(c)
+db = None
+logger = None
+counter = Counter(count(), count(), count(), count(), count())
 
 
-def _build_qualifiers(qualifiers):
+def valid_seq(record):
+    '''Filters out unknown sequences that are all 'N' so they are not saved'''
+
+    m = re.search('[AGCT]', record.seq.tostring())
+
+    return bool(m)
+
+
+def extract_sequence(record, genome, delete=False):
+    '''Returns a dictionary of the genome sequence'''
+    global counter
+
+    if valid_seq(record):
+        counter.sequences.next()
+        if delete:
+            seq_id = genome.fs.get_last_version(genome.gi)._id
+            genome.fs.delete(seq_id)
+        genome.fs.put(record.seq.tostring(), filename=str(genome.gi), chunkSize=80)
+
+
+def get_qualifiers(qualifiers):
     '''Returns dictionary of useful qualifiers for the feature'''
 
-    # Parse out the GeneID as an int
+    gene = qualifiers['gene'][0] if 'gene' in qualifiers else None
+
+    locusTag = qualifiers['locus_tag'][0] if 'locus_tag' in qualifiers else None
+
     try:
-        geneId = int([refs[7:] for refs in qualifiers["db_xref"] if 'GeneID' in refs][0])
+        geneId = [int(refs[7:]) for refs in qualifiers["db_xref"] if 'GeneID' in refs][0]
     except (IndexError, KeyError):
-        geneId = 'NA'
+        geneId = None
 
-    if 'locus_tag' in qualifiers:
-        locusTag = qualifiers["locus_tag"][0]
-    else:
-        locusTag = 'NA'
+    name = gene or locusTag or geneId or 'NA'
 
-    if 'gene' in qualifiers:
-        name = qualifiers["gene"][0]
-    elif locusTag != 'NA':
-        name = locusTag
-    elif geneId != 'NA':
-        name = geneId
-    else:
-        name = 'NA'
-
-    q = {
-        "geneId": geneId
-      , "name": name
-      , "locusTag": locusTag
-    }
-
-    return q
+    return Qualifiers(name, geneId or u'NA', locusTag or 'NA')
 
 
-def _build_feature_join(feature, genome):
-    '''Required to deal with features with locations that are join() or order(). Inserts each of the subfeatures as features linked the Genome'''
+def build_subfeatures(feature, genome):
+    '''Needed for features with locations that are 'join' or 'order'. Recreates the parent features multiple times using the subfeatures' location.'''
 
-    fs = []
-    fIds = []
-
-    # Creates features using subfeature locations
-    for subfeature in feature.sub_features:
-        featureId = ObjectId()
-        feature.location = subfeature.location
-        fs.append(_build_feature(feature, featureId, genome))
-        fIds.append(featureId)
-
-    return fs, fIds
+    [build_feature(feature, genome, sf.location) for sf in feature.sub_features]
 
 
-def _build_feature(feature, featureId,  genome):
-    '''Returns a dictionary representation of a feature that can be inserted into MongoDB'''
+def build_feature(feature, genome, sf_location = None):
+    '''Returns a dictionary of the feature'''
+    global counter
+    counter.features.next()
 
-    qualifiers = _build_qualifiers(feature.qualifiers)
+    qualifiers = get_qualifiers(feature.qualifiers)
+    feature.location = sf_location or feature.location
 
-    f = {
-        "_id": featureId
-        , "name": qualifiers["name"]
-        , "genomeId": genome["_id"]
-        , "geneId": qualifiers["geneId"]
-        , "locusTag": qualifiers["locusTag"]
+    db.Feature({
+        "name": qualifiers.name
+        , "genome": genome.gi
+        , "geneId": qualifiers.geneId
+        , "locusTag": qualifiers.locusTag
         , "start": feature.location.nofuzzy_start + 1
         , "end": feature.location.nofuzzy_end
         , "operator": feature.location_operator
         , "strand": feature.strand
         , "type": feature.type
-        , "seqId": genome["seqId"]
-    }
-
-    return f
+        }).save()
 
 
-def extract_features(record, genome):
-    '''Returns a list of features and feature Ids belonging to the genome'''
+def extract_feature(feature, genome):
+    '''Determines the feature's location operator and calls the appropriate build function'''
 
-    # List of features for DB import
-    fs = []
-    # List of feature Ids to push into genome
-    fIds = []
+    has_subs = feature.location_operator in ['join', 'order']
 
-    # Loop through the feature records
-    for feature in record.features[1:]:
-        if feature.type == "gene" or feature.type == "CDS":
-            # Deal with positions that look like (1..100,150..200)
-            if feature.location_operator == 'join' or feature.location_operator == 'order':
-                feats, fIds = _build_feature_join(feature, genome)
-                fs.extend(feats)
-                fIds.extend(fIds)
-            else:
-                featureId = ObjectId()
-                fs.append(_build_feature(feature, featureId, genome))
-                fIds.append(featureId)
-
-    return fs, fIds
+    build_subfeatures(feature, genome) if has_subs else build_feature(feature, genome)
 
 
-def extract_genome(record):
-    '''Returns a dictionary representation of a genome that can be inserted into MongoDB'''
+def extract_features(record, genome, delete=False):
+    '''Returns a list of features belonging to the genome'''
 
-    # Build genome data
-    genome = {
-        "_id": ObjectId()
-        , "gi": int(record.annotations['gi'])
+    if delete: db.feature.remove({'genome': genome.gi})
+
+    [extract_feature(f, genome) for f in record.features[1:] if f.type in ['gene', 'CDS']]
+
+
+def extract_genome(record, delete):
+    '''Returns a dictionary of the genome'''
+    global counter
+    counter.genomes.next()
+
+    if delete: db.genome.remove({'gi': int(record.annotations['gi'])})
+
+    genome = db.Genome({
+        "gi": int(record.annotations['gi'])
         , "name": record.description
         , "accession": record.name
         , "version": record.annotations['sequence_version']
@@ -134,9 +124,100 @@ def extract_genome(record):
         , "strand":  record.features[0].strand
         , "taxonomy": record.annotations['taxonomy']
         , "organism": record.annotations['organism']
-    }
+        , "pending": "features"
+        })
+
+    genome.save()
 
     return genome
+
+
+def get_genome(record):
+    '''Returns genome from Database'''
+    global counter
+    counter.pending.next()
+
+    return db.Genome.one({'gi': int(record.annotations['gi'])})
+
+
+def exists(record, genomes):
+    '''Checks if the record's GI exists in the list of GIs from the database'''
+
+    return int(record.annotations['gi']) in genomes
+
+
+def parse_record(record, saved_genomes, pending_genomes, repair):
+    '''Pull out genomic information from the GenBank file'''
+    global counter
+    counter.records.next()
+
+    if not repair and exists(record, saved_genomes):
+        return None
+
+    is_pending = exists(record, pending_genomes)
+    delete = repair or is_pending
+
+    genome = get_genome(record) if is_pending else extract_genome(record, delete)
+
+    if genome.pending == 'features':
+        extract_features(record, genome, delete)
+        genome.pending = 'sequence'
+        genome.save()
+
+    extract_sequence(record, genome, delete)
+    del genome['pending']
+
+    genome.save()
+
+
+def get_pending_genomes():
+    '''Returns a set of genomes with pending transactions'''
+
+    return set(genome['gi'] for genome in db.Genome.find({'pending': {'$exists': True}}))
+
+
+def get_saved_genomes():
+    '''Returns a set of genomes currently in the db, uses GI to prevent duplication.'''
+
+    return set(genome['gi'] for genome in db.Genome.find({'pending': {'$exists': False}}).hint([('_id', 1)]))
+
+
+def parse_gb_file(f, repair):
+    '''Use SeqIO to extract genome data from GenBank files'''
+    logger.info('Scanning GenBank File {0}'.format(f))
+
+    with open(f, 'rU') as fh:
+        pending_genomes = get_pending_genomes() if not repair else []
+        saved_genomes = get_saved_genomes() if not repair else []
+        [parse_record(r, saved_genomes, pending_genomes, repair) for r in SeqIO.parse(fh, 'gb')]
+        summary()
+
+
+def summary():
+    '''Logging summary of added records'''
+    global counter
+
+    # Counter starts at 0, so >it = count(); >print it.next(); >0
+    # Using counter.*.next here sets it to the correct value for printing.
+    records = counter.records.next()
+    genomes = counter.genomes.next()
+    pending = counter.pending.next()
+    features = counter.features.next()
+    sequences = counter.sequences.next()
+
+    if records:
+        logger.info("{0} Genomes found, {1} new Genomes added.".format(records, genomes))
+        if pending:
+            logger.info('{0} Genome found with pending transactions'.format(pending))
+        if features:
+            logger.info('{0} Features added successfully!'.format(features))
+        if sequences:
+            logger.info('{0} Sequences added successfully!'.format(sequences))
+    else:
+        logger.info('No Genomes found, make sure this is a GenBank file.')
+
+    # Reset the counter for the next file
+    counter = Counter(count(), count(), count(), count(), count())
 
 
 def main(args):
@@ -148,80 +229,10 @@ def main(args):
     global db, logger
 
     logger = args.logging.getLogger(__name__)
-    db = capsid.connect(args)
+    db = connect(args)
 
-    for f in args.files:
-        records_found = 0
-        dbgenomes = {}
-        genomes = []
-        features = []
-        seqs = []
-
-        logger.info('Scanning GenBank File {0}'.format(f))
-        try:
-            logger.debug('Trying to parse {0} with SeqIO'.format(f))
-            with open(f, 'rU') as fh:
-                # Get a list of genomes currently in the db, to prevent duplication use gi
-                logger.info('Getting list of Genomes from the Database')
-                dbgenomes = dict((g['gi'], 1) for g in db.genome.find({}, {"_id":0, "gi":1}))
-
-                for record in SeqIO.parse(fh, 'gb'):
-                    records_found += 1
-                    if int(record.annotations['gi']) not in dbgenomes:
-                        # Extract Genomic data from the GenBank file
-                        genome = extract_genome(record)
-
-                        # If there is seq data in the genbank file add it to the db
-                        # Human seq are too long to bother with
-                        if record.annotations['organism'].capitalize() != 'Homo sapiens':
-                            genome['seqId'] = ObjectId()
-                            seqs.append({"_id": genome['seqId'], "seq": record.seq.tostring()})
-
-                            # Extract genome features (Gene, CDS)
-                            fs, genome['features'] = extract_features(record, genome)
-                            features.extend(fs)
-
-                        genomes.append(genome)
-                        logger.debug('Added: {0}'.format(record.description))
-                    else:
-                        logger.debug('Skipped: {0}'.format(record.description))
-        except IOError as (errno, strerror):
-            logger.warning("I/O Error({0}): {1} {2}. Skipping...".format(errno, strerror, f))
-            continue
-
-        # Features and Sequences within this if so they are not added if Genome insert fails
-        if records_found:
-            try:
-                logger.info('Adding Genomes...')
-                upload('genome', genomes)
-                logger.info("{0} Genomes found, {1} new Genomes added.".format(records_found, len(genomes)))
-
-                if features:
-                    try:
-                        logger.info('Adding Features...')
-                        upload('feature', features)
-                        logger.info('{0} Features added successfully!'.format(len(features)))
-                    except:
-                        raise
-                else:
-                    logger.info('No Features found.')
-
-                if seqs:
-                    try:
-                        logger.info('Adding Sequences...')
-                        upload('sequence', seqs)
-                        logger.info('{0} Sequences added successfully!'.format(len(seqs)))
-                    except:
-                        raise
-                else:
-                    logger.info('No Sequences found.')
-
-            except:
-                raise
-        else:
-            logger.info('No Genomes found, make sure this is a GenBank file.')
+    [parse_gb_file(f, args.repair) for f in args.files]
 
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid gbloader -h\n\tor\n\t$ /path/to/capsid/bin/capsid gbloader -h'
-

@@ -11,370 +11,334 @@
 
 
 from __future__ import division
-import math
+from itertools import count, ifilter, imap
+from collections import namedtuple
+from functools import partial
 import re
 
-from bson import ObjectId, errors
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
 
-import capsid
+from database import *
 
+Counter = namedtuple('Counter', ['xeno_mapped', 'ref_mapped', 'ref_unmapped', 'maps_gene'])
+Meta = namedtuple('Meta', ['sample', 'alignment'])
+LookupGroup = namedtuple('LookupGroup', ['xeno', 'ref'])
+Lookup = namedtuple('Lookup', ['file', 'column'])
 
-db, logger = None, None
-summary = {'xeno_mapped': 0, 'human_mapped': 0, 'human_unmapped': 0}
+db = None
+logger = None
+meta = None
+mapq = None
 intersecters = {}
+genomes = {}
+counter = Counter(count(), count(), count(), count())
+regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
 
 
-def _file2dict(f, sep):
-    '''
-    Saves the file as a dictionary using the accession/gi as keys:
-        {line[1]: line[0]}
-    '''
+def get_meta(align_name):
+    '''Gather the meta data for the alignment from the database'''
 
-    genomes = {}
+    alignment = db.Alignment.one({"name": align_name})
+    try:
+        sample = db.Sample.one({"name": alignment.sample})
+    except AttributeError:
+        exit(logger.error("Alignment {0} not found in Database.".format(align_name)))
 
-    with open(f, 'rU') as fh:
-        for line in fh.readlines():
-            val, key = line.strip().split(sep)
-            genomes[key] = val
+    logger.debug('Subtraction for alignment: {0}'.format(align_name))
 
-    return genomes
+    return Meta(sample, alignment)
 
 
-def _db2dict(column):
-    '''
-    Returns a dictionary from the database to compare with _file2dict in the format:
-        {'_id':genome['_id'], 'gi':genome['gi']}
-    '''
+def update_isref(readId):
+    ''' '''
 
-    return db.genome.find({}, {'_id':1, column:1})
+    db.mapped.update({'readId': readId, 'alignment':meta.alignment.name},
+                     {'$set': {'isRef': 1}}, False, False, False, True)
 
 
-def _lookup_custom(f, sep, col):
-    '''
-    Will match the genome header info with genome Ids in the database using
-    a shared column. For best results use either gi or accession
-    '''
-    logger.debug('Entering _lookup_custom')
+def extract_unmapped(align, fastq):
+    '''Output unmapped alignments to Fastq file'''
 
-    # parse lookup file
-    # [{id:col_value},...]
-    f_genomes = _file2dict(f, sep)
-    # Query db
-    # [{_id:_id,col:col_value},...]
-    db_genomes = _db2dict(col)
-    # merge lists to return _id:id
-    genomes = dict((f_genomes[d[col]],d['_id']) for d in db_genomes if d[col] in f_genomes)
-
-    logger.debug('Exiting _lookup_custom')
-    return genomes
+    fastq.write('@'+str(align.qname)+'\n'+str(align.seq)+'\n+\n'+str(align.qqual)+'\n')
 
 
-def _lookup(header_from_file, genomes, method):
-    '''Take the input for the header of the BAM return to ObjectId of the Genome in the Database'''
-
-    g = ''
-
-    if method == 'default':
-        g = ObjectId(header_from_file)
-    elif method == 'fasta':
-        # Parse genome header looking ofr GI or Accession
-        format = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
-        result = format.findall(header_from_file)
-        for r in result:
-            if r[0]:
-                g = db.genome.find_one({'gi': r[0]}, {'_id': 1})['_id']
-                break
-            elif r[2]:
-                g = db.genome.find_one({'accession': r[2]}, {'_id': 1})['_id']
-                break
-            else:
-                logger.error('Could not find Gi or Accession from genome header. Please make sure your header contains the standard formats for either GenInfo integrated database (gi|integer) or RefSeq (ref|accession|name).')
-    elif method == 'custom':
-        # If the genomeId in the bam file cannot be mapped to the db, assume it is from a junction and
-        # assign gId = None. Later any reads that map to a junction and a virus will have isHuman:1 for the vg,
-        # but the hg will not be saved
-        # Replace id in file with id in MongoDB
-        try:
-            g = genomes[header_from_file]
-        except KeyError:
-            g = None
-
-    return g
-
-
-def _find_gene_hits(mapped):
-    '''Find the mapped hits that fall within a gene'''
-
+def maps_gene(mapped):
+    '''Determine if the mapped alignment falls within a gene.'''
     global intersecters
-    hits = {}
 
-    # Loop through mapped to see if there is a hit
-    for m in mapped:
-            # Get tree
-            try:
-                intersecter = intersecters[m['genomeId']]
-            except:
-                genes = db.feature.find({"genomeId": m['genomeId'], "type": "gene"})
-
-                # Initialize tree
-                intersecter = Intersecter()
-
-                for gene in genes:
-                    # Interval end is exclusive, need to +1 to line up with actual position
-                    try:
-                        intersecter.add_interval(Interval(gene['start'], gene['end'] + 1))
-                    except AssertionError:
-                        logger.error('Gene: {0} - start is greater than stop. Skipping...'.format(gene['_id']))
-
-                intersecters[m['genomeId']] = intersecter
-
-            # Check if mapped hits any gene, save readId
-            if intersecter.find(m['refStart'], m['refEnd']):
-                hits[m['_id']] = 1
-
-    return hits
-
-
-def meta_data(align):
-    '''Use the alignment name to find sample and project'''
-
-    meta = {}
-
-    meta['alignment'] = db.alignment.find_one({"name": align})
     try:
-        meta['sample'] = db.sample.find_one({"name": meta['alignment']['sample']})
-    except TypeError:
-        exit(logger.error("Alignment {0} not found in Database.".format(align)))
+        intersecter = intersecters[mapped['genome']]
     except KeyError:
-        exit(logger.error("Sample cannot be found. Please make sure the Alignment has been created properly."))
+        genes = db.feature.find({'genome': mapped['genome'], 'type': 'gene'})
 
-    logger.debug('Subtraction for alignment: {0}'.format(align))
+        intersecter = Intersecter()
 
-    return meta
+        # Interval end is exclusive, need to +1 to line up with actual position
+        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1, gene['name']))
+         for gene in genes]
+
+        intersecters[mapped['genome']] = intersecter
+
+    return intersecter.find(mapped['refStart'], mapped['refEnd'])
 
 
-def _mapped(align, genome, meta, alignment, human=False):
-    '''Build the mapped hit document'''
+def build_mapped(align, genome, reference):
+    '''Generates dict for mapped alignments'''
 
-    fsum = math.fsum
     scores = [ord(m)-33 for m in align.qqual]
+
+    if align.is_proper_pair:
+        align_length = align.isize
+        ref_end = align.pos + align.isize + 1
+    else:
+        # If the cigar data is missing [(), ()] give it a length of 1
+        align_length = align.alen
+        ref_end = align.aend or align.pos + align_length + 1
+
     try:
-        mismatch = len(re.findall("\D", align.opt('MD')))
+        MD = align.opt('MD')
+        mismatch = len(re.findall("\D", MD))
     except KeyError:
-        mismatch = align.alen
-    refend = int(align.aend) if alignment['se'] else int(align.pos + align.isize) + 1
-    align_length = align.alen if alignment['se'] else align.isize
+        MD = ''
+        try: mismatch = int(align.rlen)
+        except TypeError:
+            logger.debug(align)
+            logger.error('Aligned read with null length')
+            exit()
+
     mapped = {
-         "_id": ObjectId()
-       , "readId": align.qname
+       "readId": align.qname
        , "refStrand": -1 if align.is_reverse else 1
-       , "refStart": align.pos + 1 # pysam is 0-based index
-       , "refEnd": refend
-       , "alignLength": align_length
-       , "readLength": align.rlen  # Total Length of the read
+       , "refStart": int(align.pos) + 1 # pysam is 0-based index
+       , "refEnd": int(ref_end)
+       , "alignLength": int(align_length)
+       , "readLength": int(align.rlen)  # Total Length of the read
        , "mapq": int(align.mapq)
        , "minQual": min(scores)
-       , "avgQual": fsum(scores) / len(scores)
+       , "avgQual": sum(scores) / len(scores)
        , "miscalls": align.qqual.count('.')
        , "mismatch": mismatch
-       , "sequencingType": meta['alignment']['type']
-       , "platform": meta['alignment']['platform']
-       , "project": meta['sample']['project']
-       , "genomeId": genome
-       , "sample": meta['sample']['name']
-       , "alignment": meta['alignment']['name']
-     }
+       , "pairEnd": 1 if align.is_proper_pair else 0
+       , "genome": int(genome)
+       , "project": meta.sample.project
+       , "sample": meta.sample.name
+       , "alignment": meta.alignment.name
+       , "platform": meta.alignment.platform
+       , "sequencingType": meta.alignment.type
+       , "sequence": align.query
+       , "cigar": align.cigar
+       , "MD": MD
+       }
 
-    if human:
-        mapped['isHuman'] = 1
+    mapped_genes = maps_gene(mapped)
+    if mapped_genes:
+        counter.maps_gene.next()
+        mapped['mapsGene'] = [gene.value for gene in mapped_genes]
+
+    if reference:
+        mapped['isRef'] = 1
 
     return mapped
 
 
-def _unmapped(align, meta):
-    '''Build the unmapped hit document'''
+def get_genome(gid):
+    '''Query database for genome using both gi and accession'''
 
-    scores = [ord(m)-33 for m in align.qqual]
-    unmapped = {
-        "readId": align.qname,
-        "sequencingType": meta['alignment']['type'],
-        "readLength": align.rlen,
-        "minQual": min(scores),
-        "avgQual": sum(scores, 0.0) / len(scores),
-        "miscalls": align.qqual.count('.'),
-        "project": meta['sample']['project'],
-        "sample": meta['sample']['name'],
-        "alignment": meta['alignment']['name'],
-    }
+    if gid['gi']:
+        genome = int(gid['gi'])
+    elif gid['accession']:
+        try: genome = db.genome.find_one({'accession':gid['accession']},
+                                         {'_id':0, 'gi':1})['gi']
+        except TypeError: genome = None
 
-    return unmapped
+    return genome
 
 
-def parse_human(f, mapped_ids, meta, lookup, fetch, alignment):
-    '''Iterate through the Human BAM file'''
-    logger.debug('Entering _parse_human')
-
-    global summary
-
-    mapped, unmapped, intersecting_mapped_ids = [], [], {}
-
-    logger.info('Scanning Human BAM file...')
-    logger.debug("{0}".format(f))
-    bamfile = pysam.Samfile(f, 'rb')
-
-    for align in bamfile.fetch(until_eof=True):
-        fetch_unmapped = fetch['unmapped'] and align.is_unmapped and align.qname not in mapped_ids
-        fetch_mapped_se = alignment['se'] and not align.is_unmapped and fetch['mapped'] and align.qname in mapped_ids
-        fetch_mapped_pe = alignment['pe'] and not align.is_unmapped and fetch['mapped'] and align.is_proper_pair and align.isize > 0 and align.qname in mapped_ids
-        fetch_mapped = fetch_mapped_se or fetch_mapped_pe
-
-        # If the alignemnt is unmapped and the readId is not in the xeno mapped ids save
-        if fetch_unmapped:
-            summary['human_unmapped'] += 1
-            unmapped.append(_unmapped(align, meta))
-            # When it gets too big insert and clear
-            if len(unmapped) >= 100:
-                db.unmapped.insert(unmapped)
-                unmapped = []
-        elif fetch_mapped:
-            # Returns the genome Id from the DB - will return None if a Junction
-            genome = _lookup(bamfile.getrname(align.tid), lookup['human_genomes'], lookup['human_method'])
-            intersecting_mapped_ids[align.qname] = 1
-            # Will append intersecting human genome hits, unless from junction
-            if genome:
-                summary['human_mapped'] += 1
-                mapped.append(_mapped(align, genome, meta, alignment, True))
-                # When it gets too big insert and clear
-                if len(mapped) >= 100:
-                    db.mapped.insert(mapped)
-                    mapped = []
-
-    bamfile.close()
+def build_lookup(column, header, gid):
+    ''' '''
+    global genomes
+    gids = {'gi': None, 'accession': None}
+    gids[column] = gid
 
     try:
+        genome = get_genome(gids)
+        if genome:
+            genomes[str(header)] = genome
+    except ValueError: pass
+
+
+def genome_lookup(lookup):
+    ''' '''
+    global genomes
+    logger.info('Building Lookup Table...')
+    logger.debug('Lookup file {} using {} as bridge'.format(lookup.file, lookup.column))
+
+    genomes = {} # Remove any old values before re-populating
+    with open(lookup.file, 'rU') as fh:
+        [build_lookup(lookup.column, *line.strip().split(';')) for line in fh]
+
+
+def determine_genome(genome_header):
+    '''Use the genome header data in BAM file to determine the genome'''
+
+    result = regex.findall(genome_header)
+
+    gids = [{'gi':r[0], 'accession':r[2]} for r in result]
+    try:
+        genome = filter(None, [get_genome(gid) for gid in gids]).pop()
+    except IndexError:
+        genome = None
+
+    return genome
+
+
+def insert_mapped(mapped, process):
+    '''Insert mapped alignments into Database'''
+
+    # If it maps to a genome save in the database, otherwise
+    # just return the intersecting read id
+    if mapped['genome'] and process in ['both', 'mapped']:
         db.mapped.insert(mapped)
-    except:
-        pass
 
-    try:
-        db.unmapped.insert(unmapped)
-    except:
-        pass
-
-    logger.debug('Exiting _parse_human')
-    return intersecting_mapped_ids
+    return mapped['readId']
 
 
-def parse_xeno(f, meta, lookup, fetch, alignment):
-    '''Iterate through the Virus BAM file'''
+def valid_mapped(align):
+    '''Returns true if single-end or pair-end with isize'''
 
-    logger.debug('Entering _parse_xeno')
+    return not align.is_proper_pair or align.is_proper_pair and align.isize
 
-    global summary
 
-    mapped, mapped_ids, hits_ids = [], {}, {}
+def extract_mapped(align, bamfile, reference=False):
+    '''Process mapped alignment and return dict'''
+    global genomes
 
-    logger.info('Scanning Xeno BAM file...')
-    logger.debug("{0}".format(f))
-    bamfile = pysam.Samfile(f, 'rb')
+    if (0 <= align.mapq <= 3 or align.mapq >= mapq) and valid_mapped(align):
+        try:
+            genome = genomes[str(bamfile.getrname(align.tid))]
+        except KeyError:
+            genome = determine_genome(bamfile.getrname(align.tid))
+            if genome: genomes[str(bamfile.getrname(align.tid))] = genome
 
-    # Loop through the mapped alignments in Bamfile
-    for align in bamfile.fetch():
-        # Create mapped dict and add to list
-        if alignment['se'] or alignment['pe'] and align.is_proper_pair and align.isize > 0:
-            summary['xeno_mapped'] += 1
-            mapped_ids[align.qname] = 1
-            genome = _lookup(bamfile.getrname(align.tid), lookup['xeno_genomes'], lookup['xeno_method'])
-            mapped.append(_mapped(align, genome, meta, alignment))
-            # When it gets too big insert and clear
-            if len(mapped) >= 100:
-                db.mapped.insert(mapped)
-                hits_ids.update(_find_gene_hits(mapped))
-                mapped = []
+        # If it doesn't map to a genome in the database, assume it is mapping to
+        # a junction and just save as an intersecting readId
+        if genome:
+            counter.ref_mapped.next() if reference else counter.xeno_mapped.next()
+            mapped = build_mapped(align, genome, reference)
+        else:
+            mapped = {'readId': align.qname, 'genome': None}
 
-    bamfile.close()
+        return mapped
 
-    # Insert any left over
-    try:
-        hits_ids.update(_find_gene_hits(mapped))
-        db.mapped.insert(mapped)
-    except:
-        pass
 
-    logger.debug('Exiting _parse_xeno')
-    return mapped_ids, hits_ids
+def maps_xeno(align, readids):
+    '''Checks if alignment readId matches any in readids set'''
+
+    return align.qname in readids
+
+
+def extract_alignment(align, bamfile, readids, fastq):
+    '''Process alignments '''
+
+    in_xeno = maps_xeno(align, readids)
+
+    if align.is_unmapped and not in_xeno and fastq:
+        counter.ref_unmapped.next()
+        extract_unmapped(align, fastq)
+    elif not align.is_unmapped and in_xeno:
+        return extract_mapped(align, bamfile, True)
+
+
+def parse_ref(args, readids, process):
+    '''Extract alignments from Reference BAM file'''
+    global genomes
+
+    if args.lookup.ref.file: genome_lookup(args.lookup.ref)
+
+    logger.info('Finding alignments in Reference BAM file...')
+    logger.debug('Reference BAM File: {0}'.format(args.ref))
+
+    bamfile = pysam.Samfile(args.ref, 'rb')
+
+    fastq = open(meta.alignment.name + '.unmapped.fastq', 'w') if process in ['both', 'unmapped'] else None
+
+    return ifilter(None, (extract_alignment(align, bamfile, readids, fastq)
+                          for align in bamfile.fetch(until_eof=True)))
+
+
+def parse_xeno(args):
+    '''Extract alignments from Xeno BAM file'''
+    global genomes
+
+    if args.lookup.xeno.file: genome_lookup(args.lookup.xeno)
+
+    logger.info('Finding alignments in Xeno BAM file...')
+    logger.debug('Xeno BAM File: {0}'.format(args.xeno))
+
+    bamfile = pysam.Samfile(args.xeno, 'rb')
+    return ifilter(None, (extract_mapped(align, bamfile)
+                          for align in bamfile.fetch()))
+
+
+def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
+    '''Logging summary of added records'''
+
+    # Counter starts at 0, so >it = count(); >print it.next(); >0
+    # Using counter.*.next here sets it to the correct value for printing.
+    xeno_mapped = counter.xeno_mapped.next()
+    ref_mapped = counter.ref_mapped.next()
+    ref_unmapped = counter.ref_unmapped.next()
+    maps_gene = counter.maps_gene.next()
+
+    total_mapped = xeno_mapped + ref_mapped if process in ['mapped', 'both'] else 0
+
+    logger.info('Total mapped alignments found in Xeno BAM file: {0}'.format(xeno_mapped))
+    logger.info('Total mapped alignments found in Reference BAM file: {0}'.format(ref_mapped))
+    logger.info('Total mapped alignments added to database: {0}'.format(total_mapped))
+    logger.info('Xeno reads that hit a gene ("mapsGene":1): {0}'.format(maps_gene))
+    logger.info('Reads that map to Xeno with unique Read IDs: {0}'.format(len(xeno_mapped_readids)))
+    logger.info('Reads that map to both Xeno and Reference with unique Read IDs: {0}'.format(len(intersecting_mapped_readids)))
+    logger.info('Unmapped alignments found in Reference BAM file: {0}'.format(ref_unmapped))
 
 
 def main(args):
-    '''Processes bams files and populates the DB with mapped entries that
-    contain relavent read information'''
-
-    global db, logger
-
+    ''' '''
+    global db, logger, meta, mapq
     logger = args.logging.getLogger(__name__)
-    db = capsid.connect(args)
 
-    meta = meta_data(args.align)
-    lookup = dict(zip(['xeno_method', 'human_method',
-                       'xeno_file', 'human_file',
-                       'xeno_column', 'human_column',
-                       'xeno_separator', 'human_separator',
-                       'xeno_genomes', 'human_genomes'],
-                      [args.lookup_method[0], args.lookup_method[1],
-                       args.lookup_file[0], args.lookup_file[1],
-                       args.lookup_column[0], args.lookup_column[1],
-                       args.lookup_separator[0], args.lookup_separator[1],
-                       None, None]))
+    if args.lookup:
+        args.lookup = LookupGroup(Lookup._make(args.lookup),
+                                  Lookup._make(args.lookup))
+    else:
+        args.lookup = LookupGroup(Lookup._make(args.xeno_lookup),
+                                  Lookup._make(args.ref_lookup))
 
-    # Generate DB Ids from the Lookup file
-    if lookup['xeno_method'] == 'custom':
-        logger.debug('Xeno using lookup file {0}'.format(lookup['xeno_file']))
-        lookup['xeno_genomes'] = _lookup_custom(lookup['xeno_file'], lookup['xeno_separator'], lookup['xeno_column'])
+    db = connect(args)
+    meta = get_meta(args.align)
+    mapq = int(args.filter)
+    process = args.process
 
-    if lookup['human_method'] == 'custom':
-        logger.debug('Human using lookup file {0}'.format(lookup['human_file']))
-        lookup['human_genomes'] = _lookup_custom(lookup['human_file'], lookup['human_separator'], lookup['human_column'])
+    p_mapped = partial(insert_mapped, process=process)
 
-    # Alignment type
-    alignment = {
-                'se': not args.pair_end
-            ,   'pe': args.pair_end
-            }
+    xeno_mapped = parse_xeno(args)
+    if process in ['both', 'mapped']:
+        logger.info('Inserting mapped alignments from Xeno BAM file...')
+    xeno_mapped_readids = set(map(p_mapped, xeno_mapped))
 
-    # Fetch Mapped or Unmapped
-    fetch = {
-            'mapped': not args.only_unmapped
-        ,   'unmapped': args.unmapped or args.only_unmapped
-        }
+    ref_mapped = parse_ref(args, xeno_mapped_readids, process)
+    if process == 'mapped':
+        logger.info('Inserting mapped alignments from Reference BAM file...')
+    elif process == 'unmapped':
+        logger.info('Outputting unmapped alignments from Reference BAM file...')
+    else:
+        logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
+    intersecting_mapped_readids = set(map(p_mapped, ref_mapped))
 
-    # Create list of reads(mapped/unmapped) from xeno file
-    logger.info('Finding mapped alignments in the Xeno BAM file...')
-    xeno_mapped_ids, xeno_hits_ids = parse_xeno(args.xeno, meta, lookup, fetch, alignment)
+    logger.info('Updating reads that map in both Xeno and Reference...')
+    map(update_isref, intersecting_mapped_readids)
 
-    # Update mapped with mapped.mapsGene : 1 if it hits a gene
-    # update({},{}, Upsert, Manipulate, Safe, Multi) http://api.mongodb.org/python/current/api/pymongo/collection.html
-    logger.info('Updating database for reads that hit a gene...')
-    for h in capsid.chunks(xeno_hits_ids.keys(), 1000):
-        db.mapped.update({"_id": {"$in": h}, "alignment": meta['alignment']['name']}, {"$set": {"mapsGene": 1}}, False, False, False, True)
-
-    # Create list of reads(mapped/unmapped) from xeno file
-    logger.info('Finding mapped/unmapped alignments in the Human BAM file...')
-    intersecting_mapped_ids = parse_human(args.human, xeno_mapped_ids, meta, lookup, fetch, alignment)
-
-    # Updating mapped with mapped.isHuman : 1 for intersecting read Ids
-    logger.info('Updating database for reads that map in both Xeno and Human...')
-    for m in capsid.chunks(intersecting_mapped_ids.keys(), 1000):
-        db.mapped.update({"readId": {"$in": m}, "alignment": meta['alignment']['name']}, {"$set": {"isHuman": 1}}, False, False, False, True)
-
-    # Summary Stats
-    logger.info('Total mapped alignments found in Xeno BAM file: {0}'.format(summary['xeno_mapped']))
-    logger.info('Total mapped alignments found in Human BAM file: {0}'.format(summary['human_mapped']))
-    logger.info('Total mapped alignments added to database: {0}'.format(summary['xeno_mapped'] + summary['human_mapped']))
-    logger.info('Xeno reads that hit a gene ("mapsGene":1): {0}'.format(len(xeno_hits_ids)))
-    logger.info('Reads that map in Xeno and Human: {0}'.format(len(intersecting_mapped_ids)))
-    logger.info('Intersecting unmapped alignments added to database: {0}'.format(summary['human_unmapped']))
+    summary(xeno_mapped_readids, intersecting_mapped_readids, process)
 
 
 if __name__ == '__main__':
