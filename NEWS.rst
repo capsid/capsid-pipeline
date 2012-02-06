@@ -1,6 +1,13 @@
 News
 ====
 
+1.2.6
+-----
+
+*Release date: 6 Feb 2012*
+
+* Subtraction filters out unmapped when building mapped reads
+
 1.2
 ---
 
