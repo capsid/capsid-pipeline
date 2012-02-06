@@ -207,7 +207,7 @@ def insert_mapped(mapped, process):
 def valid_mapped(align):
     '''Returns true if single-end or pair-end with isize'''
 
-    return not align.is_proper_pair or align.is_proper_pair and align.isize
+    return (not align.is_proper_pair or align.is_proper_pair and align.isize) and not align.is_unmapped
 
 
 def extract_mapped(align, bamfile, reference=False):
