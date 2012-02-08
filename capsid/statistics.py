@@ -148,6 +148,10 @@ def build_project_stats(project, genome):
     # The average/max of the mean coverage on each gene
     gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
 
+    # Replaces the calculated gene_coverage_max from above with the max coverage of all samples
+    sample_coverage = db.statistics.find({'label': project['label'], 'accession': genome['accession']}, {'_id':0, 'geneCoverageMax':1})
+    gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
+    
     stats = {
         "accession": genome['accession']
         ,  "genome": genome['name']
@@ -201,7 +205,7 @@ def build_sample_stats(project, sample, genome):
 
 def project_statistics(project):
     '''Calculate the statistics for a project'''
-    logger.info('Calculating statistics for project: {0}'.format(project['name']))
+    logger.debug('Calculating statistics for project: {0}'.format(project['label']))
 
     genomes = db.genome.find()
     
@@ -220,10 +224,9 @@ def sample_statistics(sample, project):
 
 def generate_statistics(project):
     '''Generates the statistics for the project and all samples under it'''
+    logger.info('Calculating statistics for project: {0}'.format(project['name']))
 
     samples = db.sample.find({"project": project['label']})
-
-    project_statistics(project)
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
@@ -231,6 +234,8 @@ def generate_statistics(project):
     p_statistics = partial(sample_statistics, project=project)
     
     pool.map(p_statistics, samples)
+
+    project_statistics(project)
     
 
 def main(args):
@@ -249,6 +254,7 @@ def main(args):
     logger.info('Updating Genome collection to show which samples hit the genome...')
     db.system_js.gs()
     logger.info('Done.')
+
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid statistics -h\n\tor\n\t$ /path/to/capsid/bin/capsid statistics -h'
