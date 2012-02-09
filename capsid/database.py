@@ -71,8 +71,9 @@ class Feature(Document):
     __collection__ = 'feature'
     structure = {
         "name": basestring
+        , "uid": basestring
         , "genome": int
-        , "geneId": OR(int, unicode)
+        , "geneId": int
         , "locusTag": basestring
         , "start": int
         , "end": int

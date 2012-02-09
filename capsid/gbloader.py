@@ -81,6 +81,7 @@ def build_feature(feature, genome, sf_location = None):
 
     db.Feature({
         "name": qualifiers.name
+        , "uid": str(qualifiers.name) + '-' + str(genome.gi) + '-' + str(qualifiers.geneId) + '-' + str(feature.location.nofuzzy_start + 1) + '-' + str(feature.location.nofuzzy_end)
         , "genome": genome.gi
         , "geneId": qualifiers.geneId
         , "locusTag": qualifiers.locusTag
