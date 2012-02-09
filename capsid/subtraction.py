@@ -100,13 +100,23 @@ def build_mapped(align, genome, reference):
         MD = align.opt('MD')
         mismatch = len(re.findall("\D", MD))
     except KeyError:
-        MD = ''
+        MD = None
         try: mismatch = int(align.rlen)
         except TypeError:
             logger.debug(align)
             logger.error('Aligned read with null length')
             exit()
 
+    try:
+        AS = align.opt('AS')
+    except KeyError:
+        AS = None
+
+    try:
+        PG = align.opt('PG')
+    except KeyError:
+        AS = None
+    
     mapped = {
        "readId": align.qname
        , "refStrand": -1 if align.is_reverse else 1
@@ -128,8 +138,11 @@ def build_mapped(align, genome, reference):
        , "sequencingType": meta.alignment.type
        , "sequence": align.query
        , "cigar": align.cigar
-       , "MD": MD
-       }
+    }
+    
+    if MD: mapped['md'] = MD
+    if AS: mapped['as'] = AS
+    if PG: mapped['pg'] = PG
 
     mapped_genes = maps_gene(mapped)
     if mapped_genes:
