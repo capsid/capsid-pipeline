@@ -58,11 +58,11 @@ def get_qualifiers(qualifiers):
     try:
         geneId = [int(refs[7:]) for refs in qualifiers["db_xref"] if 'GeneID' in refs][0]
     except (IndexError, KeyError):
-        geneId = None
+        geneId = 0
 
     name = gene or locusTag or geneId or 'NA'
 
-    return Qualifiers(name, geneId or u'NA', locusTag or 'NA')
+    return Qualifiers(name, geneId, locusTag or 'NA')
 
 
 def build_subfeatures(feature, genome):
