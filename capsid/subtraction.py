@@ -127,6 +127,7 @@ def build_mapped(align, genome, reference):
        , "mapq": int(align.mapq)
        , "minQual": min(scores)
        , "avgQual": sum(scores) / len(scores)
+       , "qqual": align.qqual
        , "miscalls": align.qqual.count('.')
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
@@ -140,8 +141,8 @@ def build_mapped(align, genome, reference):
        , "cigar": align.cigar
     }
     
+    if AS: mapped['alignScore'] = AS
     if MD: mapped['md'] = MD
-    if AS: mapped['as'] = AS
     if PG: mapped['pg'] = PG
 
     mapped_genes = maps_gene(mapped)
