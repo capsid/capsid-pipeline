@@ -37,7 +37,6 @@ License :: OSI Approved :: GNU General Public License (GPL)
 Environment :: Console
 Intended Audience :: Science/Research
 Intended Audience :: Developers
-Programming Language :: Python :: 2.6
 Programming Language :: Python :: 2.7
 Topic :: Scientific/Engineering :: Bio-Informatics
 Operating System :: Unix
