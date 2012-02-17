@@ -108,15 +108,15 @@ def build_mapped(align, genome, reference):
             exit()
 
     try:
-        AS = align.opt('AS')
+        AS = int(align.opt('AS'))
     except KeyError:
         AS = None
 
     try:
         PG = align.opt('PG')
     except KeyError:
-        AS = None
-    
+        PG = None
+
     mapped = {
        "readId": align.qname
        , "refStrand": -1 if align.is_reverse else 1
@@ -140,10 +140,10 @@ def build_mapped(align, genome, reference):
        , "sequence": align.query
        , "cigar": align.cigar
     }
-    
+
     if AS: mapped['alignScore'] = AS
-    if MD: mapped['md'] = MD
-    if PG: mapped['pg'] = PG
+    if MD: mapped['MD'] = MD
+    if PG: mapped['PG'] = PG
 
     mapped_genes = maps_gene(mapped)
     if mapped_genes:

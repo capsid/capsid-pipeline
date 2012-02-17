@@ -107,6 +107,9 @@ class Mapped(Document):
         , "sequencingType": basestring
         , "mapsGene": int
         , "isRef": int
+        , "alignScore": int
+        , "MD": basestring
+        , "PD": basestring
         }
     required_fields = ['readId', 'refStrand', 'refStart', 'refEnd', 'alignLength',
                        'readLength', 'mapq', 'minQual', 'avgQual', 'miscalls',
