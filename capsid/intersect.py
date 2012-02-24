@@ -8,6 +8,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
 import os
 import subprocess
 
@@ -29,12 +30,15 @@ def collapse_file(f, name):
     p2 = subprocess.Popen(['sort', '-u', '-T', temp, '-o', name], stdin=p1.stdout, stdout=None)
     p1.stdout.close()
 
+    while (not os.path.isfile(name)):
+        logger.debug('Waiting for file to close...')
+        time.sleep(1)
+
 
 def intersect_files(f):
     ''' '''
 
     collapse_file(f, 'temp.fq')
-
     logger.info('Intersecting with {0}...'.format(f))
     logger.debug('Intersecting reads output to out.fq')
 
