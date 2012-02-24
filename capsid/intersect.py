@@ -18,7 +18,9 @@ temp = None
 def clean_ext(name):
     '''Pull off extension'''
 
-    return name.rpartition('.')[0]
+    file_name = name.split('/')[-1]
+
+    return file_name.rpartition('.')[0]
 
 
 def collapse_file(f, name):
