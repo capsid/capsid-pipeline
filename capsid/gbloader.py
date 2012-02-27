@@ -2,7 +2,7 @@
 '''Functions for dealing with the records returned from SeqIO and creates lists of dictionary items that can be loaded into MongoDB'''
 
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.

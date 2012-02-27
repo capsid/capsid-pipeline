@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -134,10 +134,10 @@ def build_project_stats(project, genome):
     genome_hits_query = genome_hits('project', project['label'], genome['gi'])
     # Total number of hits on the genome
     genome_hit_count = genome_hits_query.count()
- 
+
     # Don't bother continuing if there are no hits
     if not genome_hit_count:
-        return None   
+        return None
 
     # Get the coverage of mapped alignments in the genome for that sample
     genome_coverage_percent = genome_coverage(genome_hits_query, genome)
@@ -146,12 +146,12 @@ def build_project_stats(project, genome):
     # Total number of hits on just the genes of the genome
     gene_hit_count = gene_hits_query.count()
     # The average/max of the mean coverage on each gene
-    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
+    gene_coverage_avg, placeholder = gene_coverage(gene_hits_query, genome)
 
     # Replaces the calculated gene_coverage_max from above with the max coverage of all samples
-    sample_coverage = db.statistics.find({'label': project['label'], 'accession': genome['accession']}, {'_id':0, 'geneCoverageMax':1})
+    sample_coverage = db.statistics.find({'label': project['label'], 'accession': genome['accession'], 'sample': {'$exists': 1}}, {'_id':0, 'geneCoverageMax':1})
     gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
-    
+
     stats = {
         "accession": genome['accession']
         ,  "genome": genome['name']
@@ -208,7 +208,7 @@ def project_statistics(project):
     logger.debug('Calculating statistics for project: {0}'.format(project['label']))
 
     genomes = db.genome.find()
-    
+
     project_stats = (build_project_stats(project, genome) for genome in genomes)
     map(insert_stats, filter(None, project_stats))
 
@@ -230,13 +230,13 @@ def generate_statistics(project):
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
-    
+
     p_statistics = partial(sample_statistics, project=project)
-    
+
     pool.map(p_statistics, samples)
 
     project_statistics(project)
-    
+
 
 def main(args):
     '''Calculate Genome Coverage Statistics'''
