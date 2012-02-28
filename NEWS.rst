@@ -1,6 +1,17 @@
 News
 ====
 
+1.3.0
+-----
+
+*Release date: 28 Feb 2012*
+
+* Adds a new field in mapped for AS tag
+* Links mapped genes to NCBI page
+* Uses max sample coverage for project max coverage
+* Adds timer to wait for file collapsing to finish when intersecting
+* Using a path/to/file input no longer breaks intersecting
+
 1.2.6
 -----
 
