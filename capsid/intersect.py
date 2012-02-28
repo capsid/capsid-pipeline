@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -8,6 +8,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
 import os
 import subprocess
 
@@ -17,7 +18,9 @@ temp = None
 def clean_ext(name):
     '''Pull off extension'''
 
-    return name.rpartition('.')[0]
+    file_name = name.split('/')[-1]
+
+    return file_name.rpartition('.')[0]
 
 
 def collapse_file(f, name):
@@ -29,12 +32,15 @@ def collapse_file(f, name):
     p2 = subprocess.Popen(['sort', '-u', '-T', temp, '-o', name], stdin=p1.stdout, stdout=None)
     p1.stdout.close()
 
+    while (not os.path.isfile(name)):
+        logger.debug('Waiting for file to close...')
+        time.sleep(1)
+
 
 def intersect_files(f):
     ''' '''
 
     collapse_file(f, 'temp.fq')
-
     logger.info('Intersecting with {0}...'.format(f))
     logger.debug('Intersecting reads output to out.fq')
 

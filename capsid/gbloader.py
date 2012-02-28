@@ -2,7 +2,7 @@
 '''Functions for dealing with the records returned from SeqIO and creates lists of dictionary items that can be loaded into MongoDB'''
 
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -58,11 +58,11 @@ def get_qualifiers(qualifiers):
     try:
         geneId = [int(refs[7:]) for refs in qualifiers["db_xref"] if 'GeneID' in refs][0]
     except (IndexError, KeyError):
-        geneId = None
+        geneId = 0
 
     name = gene or locusTag or geneId or 'NA'
 
-    return Qualifiers(name, geneId or u'NA', locusTag or 'NA')
+    return Qualifiers(name, geneId, locusTag or 'NA')
 
 
 def build_subfeatures(feature, genome):
@@ -81,6 +81,7 @@ def build_feature(feature, genome, sf_location = None):
 
     db.Feature({
         "name": qualifiers.name
+        , "uid": str(qualifiers.name) + '-' + str(genome.gi) + '-' + str(qualifiers.geneId) + '-' + str(feature.location.nofuzzy_start + 1) + '-' + str(feature.location.nofuzzy_end)
         , "genome": genome.gi
         , "geneId": qualifiers.geneId
         , "locusTag": qualifiers.locusTag

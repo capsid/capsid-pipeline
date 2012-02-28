@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -55,7 +55,8 @@ def ensure_indexes():
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
-
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignment', pymongo.ASCENDING), ('refStrand', pymongo.ASCENDING)])
+    
     # User
     logger.debug('Adding User Index')
     db.user.ensure_index('username', unique=True)

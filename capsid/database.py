@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -71,8 +71,9 @@ class Feature(Document):
     __collection__ = 'feature'
     structure = {
         "name": basestring
+        , "uid": basestring
         , "genome": int
-        , "geneId": OR(int, unicode)
+        , "geneId": int
         , "locusTag": basestring
         , "start": int
         , "end": int
@@ -106,6 +107,9 @@ class Mapped(Document):
         , "sequencingType": basestring
         , "mapsGene": int
         , "isRef": int
+        , "alignScore": int
+        , "MD": basestring
+        , "PD": basestring
         }
     required_fields = ['readId', 'refStrand', 'refStart', 'refEnd', 'alignLength',
                        'readLength', 'mapq', 'minQual', 'avgQual', 'miscalls',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -75,4 +75,4 @@ def get_version(v):
             version = "{0}.dev{1}".format(version, v[5])
     return version
 
-__version__ = get_version((1, 2, 6, "f", 0, 0))
+__version__ = get_version((1, 3, 0, "f", 0, 0))

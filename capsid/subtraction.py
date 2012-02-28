@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-# Copyright 2011(c) The Ontario Institute for Cancer Reserach. All rights reserved.
+# Copyright 2011(c) The Ontario Institute for Cancer Research. All rights reserved.
 #
 # This program and the accompanying materials are made available under the
 # terms of the GNU Public License v3.0.
@@ -75,7 +75,7 @@ def maps_gene(mapped):
         intersecter = Intersecter()
 
         # Interval end is exclusive, need to +1 to line up with actual position
-        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1, gene['name']))
+        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1, gene['geneId']))
          for gene in genes]
 
         intersecters[mapped['genome']] = intersecter
@@ -100,12 +100,22 @@ def build_mapped(align, genome, reference):
         MD = align.opt('MD')
         mismatch = len(re.findall("\D", MD))
     except KeyError:
-        MD = ''
+        MD = None
         try: mismatch = int(align.rlen)
         except TypeError:
             logger.debug(align)
             logger.error('Aligned read with null length')
             exit()
+
+    try:
+        AS = int(align.opt('AS'))
+    except KeyError:
+        AS = None
+
+    try:
+        PG = align.opt('PG')
+    except KeyError:
+        PG = None
 
     mapped = {
        "readId": align.qname
@@ -117,6 +127,7 @@ def build_mapped(align, genome, reference):
        , "mapq": int(align.mapq)
        , "minQual": min(scores)
        , "avgQual": sum(scores) / len(scores)
+       , "qqual": align.qqual
        , "miscalls": align.qqual.count('.')
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
@@ -128,8 +139,11 @@ def build_mapped(align, genome, reference):
        , "sequencingType": meta.alignment.type
        , "sequence": align.query
        , "cigar": align.cigar
-       , "MD": MD
-       }
+    }
+
+    if AS: mapped['alignScore'] = AS
+    if MD: mapped['MD'] = MD
+    if PG: mapped['PG'] = PG
 
     mapped_genes = maps_gene(mapped)
     if mapped_genes:
