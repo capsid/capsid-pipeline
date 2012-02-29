@@ -226,6 +226,9 @@ def generate_statistics(project):
     '''Generates the statistics for the project and all samples under it'''
     logger.info('Calculating statistics for project: {0}'.format(project['name']))
 
+    logger.debug('Remove old statistics for the project: {0}'.format(project['label']))
+    db.statistics.remove({'label': project['label']})
+
     samples = db.sample.find({"project": project['label']})
 
     pool_size = multiprocessing.cpu_count()
@@ -236,6 +239,12 @@ def generate_statistics(project):
     pool.map(p_statistics, samples)
 
     project_statistics(project)
+
+
+def update_sample_count(genome):
+    ''' '''
+    s = db.mapped.find({'genome': genome['gi']}).distinct('sample')        
+    db.genome.update({'gi': genome['gi']}, {'$set': {'samples': s, 'sampleCount': len(s)}})
 
 
 def main(args):
@@ -252,9 +261,10 @@ def main(args):
 
     # Updating Genomes with the number of sample hits
     logger.info('Updating Genome collection to show which samples hit the genome...')
-    db.system_js.gs()
+    genomes = db.genome.find({}, {'_id': 0, 'gi': 1})
+    map(update_sample_count, genomes)
+    #db.system_js.gs()
     logger.info('Done.')
-
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid statistics -h\n\tor\n\t$ /path/to/capsid/bin/capsid statistics -h'

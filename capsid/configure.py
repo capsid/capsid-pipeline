@@ -83,7 +83,7 @@ function() {
   genomes=db.genome.find({}, {_id:0, gi:1});
   genomes.forEach(function(g){
     s=db.mapped.distinct('sample',{genome:g.gi});
-    db.genome.update({'gi':g.gi}, {$set: {samples: s}});
+    db.genome.update({'gi':g.gi}, {$set: {samples: s, sampleCount: s.length}});
   });
 }
 """
@@ -124,8 +124,8 @@ def main(args):
     logger.info('Setting up MongoDB...')
     logger.info('Adding Indices...')
     ensure_indexes()
-    logger.info('Adding JavaScript Functions...')
-    genome_samples()
+    #logger.info('Adding JavaScript Functions...')
+    #genome_samples()
 
     logger.info('Done!')
 
