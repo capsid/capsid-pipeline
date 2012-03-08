@@ -22,8 +22,8 @@ def read(*path):
         return open(os.path.join(os.path.abspath(os.path.dirname(__file__)), *path)).read()
 
 
-VERSION = '1.3.0'
-README = read('README.rst')
+VERSION = '1.3.1'
+README = read('README')
 NEWS = read('NEWS.rst')
 install_requires = ['cython', 'numpy', 'anyjson', 'pysam', 'pymongo', 'biopython', 'bx-python', 'mongokit']
 
