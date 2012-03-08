@@ -23,7 +23,7 @@ def read(*path):
 
 
 VERSION = '1.4.0a1'
-README = read('README.rst')
+README = read('README')
 NEWS = read('NEWS.rst')
 install_requires = ['cython', 'numpy', 'anyjson', 'pysam', 'pymongo', 'biopython', 'bx-python', 'mongokit']
 
