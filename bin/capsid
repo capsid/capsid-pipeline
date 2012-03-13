@@ -110,7 +110,7 @@ if __name__ == '__main__':
     # MapQ score filter
     subtract_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
     # Lookup Options
-    lookupf = subtract_parser.add_mutually_exclusive_group()
+    lookupf = subtract_parser.add_argument_group()
     lookupf.add_argument('-l', '--lookup', metavar=('file', 'column'), nargs=2, default=None, help='lookup file and genome identifier(gi, accession) for both xeno and reference.')
     lookupf.add_argument('-xl', '--xeno_lookup', metavar=('file', 'column'), nargs=2, default=[None, None], help='lookup file and genome identifier(gi, accession) for xeno.')
     lookupf.add_argument('-rl', '--ref_lookup', metavar=('file', 'column'), nargs=2, default=[None, None], help='lookup file and genome identifier(gi, accession) for reference.')
