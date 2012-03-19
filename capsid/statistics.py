@@ -210,7 +210,9 @@ def project_statistics(project):
     genomes = db.genome.find()
 
     project_stats = (build_project_stats(project, genome) for genome in genomes)
-    map(insert_stats, filter(None, project_stats))
+
+    #map(insert_stats, filter(None, project_stats))
+    [insert_stats(stat) for stat in project_stats if stat]
 
 
 def sample_statistics(sample, project):
@@ -219,8 +221,9 @@ def sample_statistics(sample, project):
 
     genomes = db.genome.find()
     sample_stats = (build_sample_stats(project, sample, genome) for genome in genomes)
-    map(insert_stats, filter(None, sample_stats))
 
+    #map(insert_stats, filter(None, sample_stats))
+    [insert_stats(stat) for stat in sample_stats if stat]
 
 def generate_statistics(project):
     '''Generates the statistics for the project and all samples under it'''
@@ -243,7 +246,7 @@ def generate_statistics(project):
 
 def update_sample_count(genome):
     ''' '''
-    s = db.mapped.find({'genome': genome['gi']}).distinct('sample')        
+    s = db.mapped.find({'genome': genome['gi']}).distinct('sample')
     db.genome.update({'gi': genome['gi']}, {'$set': {'samples': s, 'sampleCount': len(s)}})
 
 
