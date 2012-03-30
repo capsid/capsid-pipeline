@@ -75,7 +75,7 @@ def maps_gene(mapped):
         intersecter = Intersecter()
 
         # Interval end is exclusive, need to +1 to line up with actual position
-        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1, gene['geneId']))
+        [intersecter.add_interval(Interval(gene['start'], gene['end'] + 1, gene['uid']))
          for gene in genes]
 
         intersecters[mapped['genome']] = intersecter
