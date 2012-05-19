@@ -69,6 +69,12 @@ def ensure_indexes():
     logger.debug('Adding UserRole Index')
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
 
+    #statistics
+    logger.debug('Adding Statistics Index')
+    db.statistics.ensure_index('label')
+    db.statistics.ensure_index('sample')
+    db.statistics.ensure_index('genome')
+
     # GridFS
     #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
 
