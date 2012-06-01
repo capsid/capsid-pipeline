@@ -69,6 +69,12 @@ def ensure_indexes():
     logger.debug('Adding UserRole Index')
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
 
+    #statistics
+    logger.debug('Adding Statistics Index')
+    db.statistics.ensure_index('label')
+    db.statistics.ensure_index('sample')
+    db.statistics.ensure_index('genome')
+
     # GridFS
     #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
 
@@ -83,7 +89,7 @@ function() {
   genomes=db.genome.find({}, {_id:0, gi:1});
   genomes.forEach(function(g){
     s=db.mapped.distinct('sample',{genome:g.gi});
-    db.genome.update({'gi':g.gi}, {$set: {samples: s}});
+    db.genome.update({'gi':g.gi}, {$set: {samples: s, sampleCount: s.length}});
   });
 }
 """
@@ -124,8 +130,8 @@ def main(args):
     logger.info('Setting up MongoDB...')
     logger.info('Adding Indices...')
     ensure_indexes()
-    logger.info('Adding JavaScript Functions...')
-    genome_samples()
+    #logger.info('Adding JavaScript Functions...')
+    #genome_samples()
 
     logger.info('Done!')
 

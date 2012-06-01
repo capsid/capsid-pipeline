@@ -21,7 +21,6 @@ from database import *
 db = None
 logger = None
 
-
 def merge(lst):
     ''' '''
 
@@ -210,7 +209,9 @@ def project_statistics(project):
     genomes = db.genome.find()
 
     project_stats = (build_project_stats(project, genome) for genome in genomes)
-    map(insert_stats, filter(None, project_stats))
+
+    #map(insert_stats, filter(None, project_stats))
+    [insert_stats(stat) for stat in project_stats if stat]
 
 
 def sample_statistics(sample, project):
@@ -219,12 +220,16 @@ def sample_statistics(sample, project):
 
     genomes = db.genome.find()
     sample_stats = (build_sample_stats(project, sample, genome) for genome in genomes)
-    map(insert_stats, filter(None, sample_stats))
 
+    #map(insert_stats, filter(None, sample_stats))
+    [insert_stats(stat) for stat in sample_stats if stat]
 
 def generate_statistics(project):
     '''Generates the statistics for the project and all samples under it'''
     logger.info('Calculating statistics for project: {0}'.format(project['name']))
+
+    logger.debug('Remove old statistics for the project: {0}'.format(project['label']))
+    db.statistics.remove({'label': project['label']})
 
     samples = db.sample.find({"project": project['label']})
 
@@ -234,8 +239,15 @@ def generate_statistics(project):
     p_statistics = partial(sample_statistics, project=project)
 
     pool.map(p_statistics, samples)
+    map(p_statistics, samples)
 
     project_statistics(project)
+
+
+def update_sample_count(genome):
+    ''' '''
+    s = db.mapped.find({'genome': genome['gi']}).distinct('sample')
+    db.genome.update({'gi': genome['gi']}, {'$set': {'samples': s, 'sampleCount': len(s)}})
 
 
 def main(args):
@@ -252,9 +264,9 @@ def main(args):
 
     # Updating Genomes with the number of sample hits
     logger.info('Updating Genome collection to show which samples hit the genome...')
-    db.system_js.gs()
+    genomes = db.genome.find({}, {'_id': 0, 'gi': 1})
+    map(update_sample_count, genomes)
     logger.info('Done.')
-
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid statistics -h\n\tor\n\t$ /path/to/capsid/bin/capsid statistics -h'
