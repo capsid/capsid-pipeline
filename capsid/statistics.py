@@ -43,7 +43,7 @@ def merge(lst):
 
 def insert_stats(stats):
     '''Load sample statistics into the database'''
-    
+
     db.statistics.save(stats)
 
 
@@ -123,7 +123,7 @@ def genome_coverage(query, genome):
 
 def genome_hits(col, value, genome):
     '''Calculate the number of hits the sample has on the genome'''
-    
+
     return db.mapped.find({col: value, "genome": genome},
                           {"_id":0, "refStart":1, "refEnd":1})
 
@@ -220,7 +220,7 @@ def sample_statistics(sample, project):
 
     genomes = db.genome.find()
     sample_stats = (build_sample_stats(project, sample, genome) for genome in genomes)
-    
+
     #map(insert_stats, filter(None, sample_stats))
     [insert_stats(stat) for stat in sample_stats if stat]
 
@@ -232,14 +232,14 @@ def generate_statistics(project):
     db.statistics.remove({'label': project['label']})
 
     samples = db.sample.find({"project": project['label']})
-    
+
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
 
     p_statistics = partial(sample_statistics, project=project)
 
     pool.map(p_statistics, samples)
-    #map(p_statistics, samples)
+    map(p_statistics, samples)
 
     project_statistics(project)
 
@@ -258,7 +258,7 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
 
-    projects = list(db.project.find({'label': {'$in': args.projects}}))
+    projects = db.project.find({'label': {'$in': args.projects}})
 
     map(generate_statistics, projects)
 
@@ -266,7 +266,6 @@ def main(args):
     logger.info('Updating Genome collection to show which samples hit the genome...')
     genomes = db.genome.find({}, {'_id': 0, 'gi': 1})
     map(update_sample_count, genomes)
-    #db.system_js.gs()
     logger.info('Done.')
 
 if __name__ == '__main__':
