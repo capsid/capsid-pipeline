@@ -1,6 +1,14 @@
 News
 ====
 
+1.4.0
+-----
+
+*Release date: 1 June 2012*
+
+* Adds statistics while they are being run rather than all at the end
+* Saves unique id for genes as uid
+
 1.3.0
 -----
 
