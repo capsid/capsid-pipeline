@@ -1,6 +1,13 @@
 News
 ====
 
+1.4.1
+-----
+
+*Release date: 4 July 2012*
+
+* Fixes cursor timeout for long running statistics queries
+
 1.4.0
 -----
 
