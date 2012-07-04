@@ -231,7 +231,7 @@ def generate_statistics(project):
     logger.debug('Remove old statistics for the project: {0}'.format(project['label']))
     db.statistics.remove({'label': project['label']})
 
-    samples = db.sample.find({"project": project['label']})
+    samples = db.sample.find({"project": project['label']}, timeout=False)
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
@@ -258,7 +258,7 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
 
-    projects = db.project.find({'label': {'$in': args.projects}})
+    projects = db.project.find({'label': {'$in': args.projects}}, timeout=False)
 
     map(generate_statistics, projects)
 
