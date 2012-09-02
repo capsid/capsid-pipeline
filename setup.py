@@ -22,7 +22,7 @@ def read(*path):
         return open(os.path.join(os.path.abspath(os.path.dirname(__file__)), *path)).read()
 
 
-VERSION = '1.4.1'
+VERSION = '1.4.2a1'
 README = read('README.rst')
 NEWS = read('NEWS.rst')
 install_requires = ['cython', 'numpy', 'anyjson', 'pysam', 'pymongo', 'biopython', 'bx-python', 'mongokit']
