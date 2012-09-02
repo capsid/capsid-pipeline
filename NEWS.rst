@@ -1,6 +1,13 @@
 News
 ====
 
+1.4.2
+-----
+
+*Release date: 2 September 2012*
+
+* Removes MongoKit dependency
+
 1.4.1
 -----
 
