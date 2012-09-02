@@ -12,22 +12,28 @@
 
 import re
 
+import gridfs
+
 from database import *
 
+fs = None
 
 def fasta_output(genome, out):
     '''Output Genome in Fasta format'''
 
     out.write('>gi|{gi}|ref|{accession}.{version}| {name}\n'.format(**genome))
-    [out.write('{0}\n'.format(line)) for line in genome.fs.get_last_version(str(genome.gi))] 
+    [out.write('{0}\n'.format(line)) for line in fs.get_last_version(str(genome['gi']))] 
 
 
 def main(args):
     '''Fasta Output of Genomes in the Database'''
 
+    global fs
+
     logger = args.logging.getLogger(__name__)
     db = connect(args)
-
+    fs = gridfs.GridFS(db)
+    
     # By default the query will not include Human
     query = {"organism": {'$ne': "Homo sapiens"}}
 
@@ -36,7 +42,7 @@ def main(args):
     if args.ref: query['accession'] = args.ref
     if args.gi: query['gi'] = int(args.gi)
 
-    genomes = db.Genome.find(query)
+    genomes = db.genome.find(query)
     logger.info('Found {0} genomes'.format(genomes.count()))
 
     logger.debug('Writing Fasta output to {0}...'.format(args.output))

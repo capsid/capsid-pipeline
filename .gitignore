@@ -2,3 +2,5 @@ dist
 capsid.egg-info
 *.pyc
 build
+.project
+.pydevproject
