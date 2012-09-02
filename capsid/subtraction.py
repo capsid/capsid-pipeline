@@ -39,9 +39,9 @@ regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
 def get_meta(align_name):
     '''Gather the meta data for the alignment from the database'''
 
-    alignment = db.Alignment.one({"name": align_name})
+    alignment = db.alignment.find_one({"name": align_name})
     try:
-        sample = db.Sample.one({"name": alignment.sample})
+        sample = db.sample.find_one({"name": alignment['sample']})
     except AttributeError:
         exit(logger.error("Alignment {0} not found in Database.".format(align_name)))
 
@@ -53,14 +53,14 @@ def get_meta(align_name):
 def update_isref(readId):
     ''' '''
 
-    db.mapped.update({'readId': readId, 'alignment':meta.alignment.name},
+    db.mapped.update({'readId': readId, 'alignment':meta.alignment['name']},
                      {'$set': {'isRef': 1}}, False, False, False, True)
 
 
 def extract_unmapped(align, fastq):
     '''Output unmapped alignments to Fastq file'''
 
-    fastq.write('@'+str(align.qname)+'\n'+str(align.seq)+'\n+\n'+str(align.qqual)+'\n')
+    fastq.write('@'+str(align['qname'])+'\n'+str(align['seq'])+'\n+\n'+str(align['qqual'])+'\n')
 
 
 def maps_gene(mapped):
@@ -132,11 +132,11 @@ def build_mapped(align, genome, reference):
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
        , "genome": int(genome)
-       , "project": meta.sample.project
-       , "sample": meta.sample.name
-       , "alignment": meta.alignment.name
-       , "platform": meta.alignment.platform
-       , "sequencingType": meta.alignment.type
+       , "project": meta.sample['project']
+       , "sample": meta.sample['name']
+       , "alignment": meta.alignment['name']
+       , "platform": meta.alignment['platform']
+       , "sequencingType": meta.alignment['type']
        , "sequence": align.query
        , "cigar": align.cigar
     }
@@ -275,7 +275,7 @@ def parse_ref(args, readids, process):
 
     bamfile = pysam.Samfile(args.ref, 'rb')
 
-    fastq = open(meta.alignment.name + '.unmapped.fastq', 'w') if process in ['both', 'unmapped'] else None
+    fastq = open(meta.alignment['name'] + '.unmapped.fastq', 'w') if process in ['both', 'unmapped'] else None
 
     return ifilter(None, (extract_alignment(align, bamfile, readids, fastq)
                           for align in bamfile.fetch(until_eof=True)))
