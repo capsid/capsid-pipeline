@@ -16,6 +16,7 @@ from collections import namedtuple
 import re
 
 from Bio import SeqIO
+import gridfs
 
 from database import *
 
@@ -24,6 +25,7 @@ Qualifiers = namedtuple('Qualifiers', ['name', 'geneId', 'locusTag'])
 Counter = namedtuple('Counter', ['records', 'genomes', 'pending', 'features', 'sequences'])
 
 db = None
+fs = None
 logger = None
 counter = Counter(count(), count(), count(), count(), count())
 
@@ -43,9 +45,9 @@ def extract_sequence(record, genome, delete=False):
     if valid_seq(record):
         counter.sequences.next()
         if delete:
-            seq_id = genome.fs.get_last_version(genome.gi)._id
-            genome.fs.delete(seq_id)
-        genome.fs.put(record.seq.tostring(), filename=str(genome.gi), chunkSize=80)
+            seq_id = fs.get_last_version(str(genome['gi']))._id
+            fs.delete(seq_id)
+        fs.put(record.seq.tostring(), filename=str(genome['gi']), chunkSize=80)
 
 
 def get_qualifiers(qualifiers):
@@ -79,10 +81,10 @@ def build_feature(feature, genome, sf_location = None):
     qualifiers = get_qualifiers(feature.qualifiers)
     feature.location = sf_location or feature.location
 
-    db.Feature({
+    db.feature.insert({
         "name": qualifiers.name
-        , "uid": str(qualifiers.name) + '-' + str(genome.gi) + '-' + str(qualifiers.geneId) + '-' + str(feature.location.nofuzzy_start + 1) + '-' + str(feature.location.nofuzzy_end)
-        , "genome": genome.gi
+        , "uid": str(qualifiers.name) + '-' + str(genome['gi']) + '-' + str(qualifiers.geneId) + '-' + str(feature.location.nofuzzy_start + 1) + '-' + str(feature.location.nofuzzy_end)
+        , "genome": genome['gi']
         , "geneId": qualifiers.geneId
         , "locusTag": qualifiers.locusTag
         , "start": feature.location.nofuzzy_start + 1
@@ -90,7 +92,7 @@ def build_feature(feature, genome, sf_location = None):
         , "operator": feature.location_operator
         , "strand": feature.strand
         , "type": feature.type
-        }).save()
+        })
 
 
 def extract_feature(feature, genome):
@@ -104,7 +106,7 @@ def extract_feature(feature, genome):
 def extract_features(record, genome, delete=False):
     '''Returns a list of features belonging to the genome'''
 
-    if delete: db.feature.remove({'genome': genome.gi})
+    if delete: db.feature.remove({'genome': genome['gi']})
 
     [extract_feature(f, genome) for f in record.features[1:] if f.type in ['gene', 'CDS']]
 
@@ -116,7 +118,7 @@ def extract_genome(record, delete):
 
     if delete: db.genome.remove({'gi': int(record.annotations['gi'])})
 
-    genome = db.Genome({
+    genome = {
         "gi": int(record.annotations['gi'])
         , "name": record.description
         , "accession": record.name
@@ -126,10 +128,10 @@ def extract_genome(record, delete):
         , "taxonomy": record.annotations['taxonomy']
         , "organism": record.annotations['organism']
         , "pending": "features"
-        })
-
-    genome.save()
-
+        }
+    
+    db.genome.save(genome)
+    
     return genome
 
 
@@ -138,7 +140,7 @@ def get_genome(record):
     global counter
     counter.pending.next()
 
-    return db.Genome.one({'gi': int(record.annotations['gi'])})
+    return db.genome.find_one({'gi': int(record.annotations['gi'])})
 
 
 def exists(record, genomes):
@@ -160,27 +162,27 @@ def parse_record(record, saved_genomes, pending_genomes, repair):
 
     genome = get_genome(record) if is_pending else extract_genome(record, delete)
 
-    if genome.pending == 'features':
+    if genome['pending'] == 'features':
         extract_features(record, genome, delete)
-        genome.pending = 'sequence'
-        genome.save()
+        genome['pending'] = 'sequence'
+        db.genome.save(genome)
 
     extract_sequence(record, genome, delete)
     del genome['pending']
 
-    genome.save()
+    db.genome.save(genome)
 
 
 def get_pending_genomes():
     '''Returns a set of genomes with pending transactions'''
 
-    return set(genome['gi'] for genome in db.Genome.find({'pending': {'$exists': True}}))
+    return set(genome['gi'] for genome in db.genome.find({'pending': {'$exists': True}}))
 
 
 def get_saved_genomes():
     '''Returns a set of genomes currently in the db, uses GI to prevent duplication.'''
 
-    return set(genome['gi'] for genome in db.Genome.find({'pending': {'$exists': False}}).hint([('_id', 1)]))
+    return set(genome['gi'] for genome in db.genome.find({'pending': {'$exists': False}}).hint([('_id', 1)]))
 
 
 def parse_gb_file(f, repair):
@@ -227,11 +229,12 @@ def main(args):
     python gloader.py g1.gbff gb2.gbff',
     '''
 
-    global db, logger
+    global db, fs, logger
 
     logger = args.logging.getLogger(__name__)
     db = connect(args)
-
+    fs = gridfs.GridFS(db)
+    
     [parse_gb_file(f, args.repair) for f in args.files]
 
 
