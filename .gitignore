@@ -4,3 +4,4 @@ capsid.egg-info
 build
 .project
 .pydevproject
+.DS_Store
