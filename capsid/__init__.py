@@ -12,7 +12,7 @@
 import logging, logging.handlers
 import os, sys, errno, ConfigParser
 
-import configure, qfilter, gbloader, subtraction, statistics, fasta, intersect
+import configure, qfilter, gbloader, subtraction, statistics, fasta, intersect, project
 
 
 def chunks(l, n):

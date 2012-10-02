@@ -34,6 +34,9 @@ def intersect_(args):
 def statistics_(args):
     capsid.statistics.main(args)
 
+def project_(args):
+    capsid.project.main(args)
+
 
 if __name__ == '__main__':
     import argparse
@@ -170,9 +173,27 @@ if __name__ == '__main__':
     verbose_debug = int_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
-
     # AutoRun
     int_parser.set_defaults(func=intersect_)
+
+    ### Project ########################################################
+    prj_parser = subparsers.add_parser('project',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Create Project\n\nExample\n\tcapsid project Project1',
+                                         help='Project')
+
+    # Project Req Atter
+    prj_parser.add_argument('label', metavar='LABEL', help='Project Label')
+    prj_parser.add_argument('--name', help='Project Name')
+    prj_parser.add_argument('--desc', help='Project Description')
+    prj_parser.add_argument('--link', help='Project Link')
+
+    # Logging Options
+    verbose_debug = prj_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    prj_parser.set_defaults(func=project_)
 
     ### Run ###
     args = parser.parse_args()
