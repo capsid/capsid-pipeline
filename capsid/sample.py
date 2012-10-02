@@ -19,23 +19,30 @@
 from pymongo.errors import DuplicateKeyError
 
 from database import *
+import project
 
 db, logger = None, None
 
-def create_role(args):
+
+def check_project(args):
+    if (not db.project.find_one({"label": args.project})):
+        args.pdesc = None
+        args.link = None
+        args.pname = None
+        project.main(args)
+
+
+def create_sample(args):
     return {
-        "authority": "ROLE_" + args.project.upper()
+        "cancer" : args.cancer,
+        "description" : args.sdesc,
+        "name" : args.sample,
+        "project" : args.project,
+        "role" : args.role,
+        "source" : args.source,
+        "version" : 0
         }
 
-def create_project(args):
-    return {
-        "description" : args.pdesc,
-        "label" : args.project,
-        "name" : args.pname or args.project,
-        "roles" : ["ROLE_" + args.project.upper()],
-        "version" : 0,
-        "wikiLink" : args.link
-        }
 
 def main(args):
     '''Create Projects from the command line'''
@@ -45,14 +52,14 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
     
+    check_project(args)
+    
     try:
-        db.project.insert(create_project(args), safe=True)
-        logger.debug("project {0} inserted successfully".format(args.project))
-        db.role.insert(create_role(args), safe=True)
-        logger.debug("role {0} inserted successfully".format(args.project))
-        logger.info("Project {0} added successfully to the Database".format(args.project))
+        db.sample.insert(create_sample(args), safe=True)
+        logger.debug("sample {0} inserted successfully".format(args.sample))
+        logger.info("Sample {0} has been added successfully to the Database".format(args.sample))
     except DuplicateKeyError:
-        logger.info("Project {0} already exists".format(args.project))
+        logger.info("Sample {0} already exists".format(args.sample))
 
 if __name__ == '__main__':
-    print 'This program should be run as part of the capsid package:\n\t$ capsid project -h\n\tor\n\t$ /path/to/capsid/bin/capsid project -h'
+    print 'This program should be run as part of the capsid package:\n\t$ capsid sample -h\n\tor\n\t$ /path/to/capsid/bin/capsid sample -h'

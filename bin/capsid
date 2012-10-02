@@ -37,6 +37,8 @@ def statistics_(args):
 def project_(args):
     capsid.project.main(args)
 
+def sample_(args):
+    capsid.sample.main(args)
 
 if __name__ == '__main__':
     import argparse
@@ -179,14 +181,14 @@ if __name__ == '__main__':
     ### Project ########################################################
     prj_parser = subparsers.add_parser('project',
                                          formatter_class=argparse.RawDescriptionHelpFormatter,
-                                         description='Create Project\n\nExample\n\tcapsid project Project1',
+                                         description='Create Project\n\nExample\n\tcapsid project prj1',
                                          help='Project')
 
     # Project Req Atter
-    prj_parser.add_argument('label', metavar='LABEL', help='Project Label')
-    prj_parser.add_argument('--name', help='Project Name')
-    prj_parser.add_argument('--desc', help='Project Description')
-    prj_parser.add_argument('--link', help='Project Link')
+    prj_parser.add_argument('project', metavar='LABEL', help='Project Label')
+    prj_parser.add_argument('--name', dest="pname", help='Project Name')
+    prj_parser.add_argument('--desc', dest="pdesc", help='Project Description')
+    prj_parser.add_argument('--link', dest="link", help='Project Link')
 
     # Logging Options
     verbose_debug = prj_parser.add_mutually_exclusive_group()
@@ -195,6 +197,27 @@ if __name__ == '__main__':
     # AutoRun
     prj_parser.set_defaults(func=project_)
 
+    ### Sample ########################################################
+    smpl_parser = subparsers.add_parser('sample',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Create Sample\n\nExample\n\tcapsid sample SAMP001 prj1',
+                                         help='Project')
+
+    # Project Req Atter
+    smpl_parser.add_argument('sample', metavar='NAME', help='Sample Name')
+    smpl_parser.add_argument('project', metavar='PROJECT',help='Project Label')
+    smpl_parser.add_argument('--desc', dest="sdesc", help='Description')
+    smpl_parser.add_argument('--role', help='Role')
+    smpl_parser.add_argument('--source', help='Source')
+    smpl_parser.add_argument('--cancer', help='Cancer Type')
+
+    # Logging Options
+    verbose_debug = smpl_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    smpl_parser.set_defaults(func=sample_)
+    
     ### Run ###
     args = parser.parse_args()
     args.logging = capsid.log(args)
