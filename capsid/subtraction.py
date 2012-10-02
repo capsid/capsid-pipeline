@@ -20,6 +20,8 @@ import pysam
 from bx.intervals.intersection import Intersecter, Interval
 
 from database import *
+import alignment
+
 
 Counter = namedtuple('Counter', ['xeno_mapped', 'ref_mapped', 'ref_unmapped', 'maps_gene'])
 Meta = namedtuple('Meta', ['sample', 'alignment'])
@@ -35,19 +37,32 @@ genomes = {}
 counter = Counter(count(), count(), count(), count())
 regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
 
+def check_align(args):
+    aln = db.alignment.find_one({"name": args.align})
+    if not aln and args.sample and args.project:
+        logger.debug("Alignment {0} not found in Database.".format(args.align))
+        args.aligner = None
+        args.type = None
+        args.platform = None
+        args.infile = None
+        args.outfile = None
+        alignment.main(args)
+        aln = db.alignment.find_one({"name": args.align})
 
-def get_meta(align_name):
+    return aln
+
+def get_meta(args):
     '''Gather the meta data for the alignment from the database'''
 
-    alignment = db.alignment.find_one({"name": align_name})
+    aln = check_align(args)
     try:
-        sample = db.sample.find_one({"name": alignment['sample']})
+        sample = db.sample.find_one({"name": aln['sample']})
     except TypeError:
-        exit(logger.error("Alignment {0} not found in Database.".format(align_name)))
+        exit(logger.error("Alignment {0} not found in Database. --project and --sample need to be passed to auto-create".format(args.align)))
 
-    logger.debug('Subtraction for alignment: {0}'.format(align_name))
+    logger.debug('Subtraction for alignment: {0}'.format(args.align))
 
-    return Meta(sample, alignment)
+    return Meta(sample, aln)
 
 
 def update_isref(readId):
@@ -329,7 +344,7 @@ def main(args):
                                   Lookup._make(args.ref_lookup))
 
     db = connect(args)
-    meta = get_meta(args.align)
+    meta = get_meta(args)
     mapq = int(args.filter)
     process = args.process
 

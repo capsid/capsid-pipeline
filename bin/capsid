@@ -122,7 +122,10 @@ if __name__ == '__main__':
     lookupf.add_argument('-l', '--lookup', metavar=('file', 'column'), nargs=2, default=None, help='lookup file and genome identifier(gi, accession) for both xeno and reference.')
     lookupf.add_argument('-xl', '--xeno_lookup', metavar=('file', 'column'), nargs=2, default=[None, None], help='lookup file and genome identifier(gi, accession) for xeno.')
     lookupf.add_argument('-rl', '--ref_lookup', metavar=('file', 'column'), nargs=2, default=[None, None], help='lookup file and genome identifier(gi, accession) for reference.')
-
+    # Auto Create P/S
+    subtract_parser.add_argument('--sample', help='Sample Name')
+    subtract_parser.add_argument('--project', help='Project Label')
+    
     # Logging Options
     verbose_debug = subtract_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')

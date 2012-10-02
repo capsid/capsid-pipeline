@@ -64,5 +64,6 @@ def main(args):
     except DuplicateKeyError:
         logger.info("Alignment {0} already exists".format(args.align))
 
+
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid alignment -h\n\tor\n\t$ /path/to/capsid/bin/capsid alignment -h'
