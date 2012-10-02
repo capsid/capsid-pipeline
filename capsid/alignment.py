@@ -19,47 +19,50 @@
 from pymongo.errors import DuplicateKeyError
 
 from database import *
-import project
+import sample
 
 db, logger = None, None
 
 
-def check_project(args):
-    if (not db.project.find_one({"label": args.project})):
-        args.pdesc = None
-        args.link = None
-        args.pname = None
-        project.main(args)
+def check_sample(args):
+    if (not db.sample.find_one({"name": args.sample})):
+        args.sdesc = None
+        args.cancer = None
+        args.role = None
+        args.source = None
+        sample.main(args)
 
 
-def create_sample(args):
+def create_alignment(args):
     return {
-        "cancer" : args.cancer,
-        "description" : args.sdesc,
-        "name" : args.sample,
+        "aligner" : args.aligner,
+        "infile" : args.infile,
+        "name" : args.align,
+        "outfile" : args.outfile,
+        "platform" : args.platform,
         "project" : args.project,
-        "role" : args.role,
-        "source" : args.source,
+        "sample" : args.sample,
+        "type" : args.type,
         "version" : 0
         }
 
 
 def main(args):
-    '''Create Projects from the command line'''
+    '''Create Alignment from the command line'''
 
     global db, logger
 
     logger = args.logging.getLogger(__name__)
     db = connect(args)
     
-    check_project(args)
+    check_sample(args)
     
     try:
-        db.sample.insert(create_sample(args), safe=True)
-        logger.debug("sample {0} inserted successfully".format(args.sample))
-        logger.info("Sample {0} has been added to {1}".format(args.sample, args.project))
+        db.alignment.insert(create_alignment(args), safe=True)
+        logger.debug("alignment {0} inserted successfully".format(args.align))
+        logger.info("Alignment {0} has been added to {1}/{2}".format(args.align, args.project, args.sample))
     except DuplicateKeyError:
-        logger.info("Sample {0} already exists".format(args.sample))
+        logger.info("Alignment {0} already exists".format(args.align))
 
 if __name__ == '__main__':
-    print 'This program should be run as part of the capsid package:\n\t$ capsid sample -h\n\tor\n\t$ /path/to/capsid/bin/capsid sample -h'
+    print 'This program should be run as part of the capsid package:\n\t$ capsid alignment -h\n\tor\n\t$ /path/to/capsid/bin/capsid alignment -h'

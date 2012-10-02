@@ -39,6 +39,9 @@ def project_(args):
 
 def sample_(args):
     capsid.sample.main(args)
+    
+def alignment_(args):
+    capsid.alignment.main(args)
 
 if __name__ == '__main__':
     import argparse
@@ -181,7 +184,7 @@ if __name__ == '__main__':
     ### Project ########################################################
     prj_parser = subparsers.add_parser('project',
                                          formatter_class=argparse.RawDescriptionHelpFormatter,
-                                         description='Create Project\n\nExample\n\tcapsid project prj1',
+                                         description='Create Project\n\nExample\n\tcapsid project PRJ1',
                                          help='Project')
 
     # Project Req Atter
@@ -200,7 +203,7 @@ if __name__ == '__main__':
     ### Sample ########################################################
     smpl_parser = subparsers.add_parser('sample',
                                          formatter_class=argparse.RawDescriptionHelpFormatter,
-                                         description='Create Sample\n\nExample\n\tcapsid sample SAMP001 prj1',
+                                         description='Create Sample\n\nExample\n\tcapsid sample SAMP001 PRJ1',
                                          help='Project')
 
     # Project Req Atter
@@ -217,6 +220,29 @@ if __name__ == '__main__':
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
     # AutoRun
     smpl_parser.set_defaults(func=sample_)
+    
+    ### Alignment ########################################################
+    aln_parser = subparsers.add_parser('alignment',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Create Alignment\n\nExample\n\tcapsid alignment ALN1 SAMP001 PRJ1',
+                                         help='Project')
+
+    # Project Req Atter
+    aln_parser.add_argument('align', metavar='NAME', help='Alignment Name')
+    aln_parser.add_argument('sample', metavar='SAMPLE', help='Sample Name')
+    aln_parser.add_argument('project', metavar='PROJECT',help='Project Label')
+    aln_parser.add_argument('--aligner', help='Aligner')
+    aln_parser.add_argument('--platform', help='Platform')
+    aln_parser.add_argument('--type', help='Type')
+    aln_parser.add_argument('--infile', help='Alignment Input file')
+    aln_parser.add_argument('--outfile', help='Alignment Outfile file')
+
+    # Logging Options
+    verbose_debug = aln_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    aln_parser.set_defaults(func=alignment_)
     
     ### Run ###
     args = parser.parse_args()
