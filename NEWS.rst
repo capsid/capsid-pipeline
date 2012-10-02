@@ -1,6 +1,14 @@
 News
 ====
 
+1.4.3
+-----
+
+*Release date: 2 October 2012*
+
+* Fixes Error message when running subtraction and alignment is not found
+* More work on fixing long running queries
+
 1.4.2
 -----
 
