@@ -206,7 +206,7 @@ def project_statistics(project):
     '''Calculate the statistics for a project'''
     logger.debug('Calculating statistics for project: {0}'.format(project['label']))
 
-    genomes = db.genome.find()
+    genomes = db.genome.find({}, timeout=False)
 
     project_stats = (build_project_stats(project, genome) for genome in genomes)
 
@@ -218,7 +218,7 @@ def sample_statistics(sample, project):
     '''Calculate the statistics for a sample'''
     logger.debug('Calculating statistics for sample: {0}'.format(sample['name']))
 
-    genomes = db.genome.find()
+    genomes = db.genome.find({}, timeout=False);
     sample_stats = (build_sample_stats(project, sample, genome) for genome in genomes)
 
     #map(insert_stats, filter(None, sample_stats))
@@ -231,7 +231,7 @@ def generate_statistics(project):
     logger.debug('Remove old statistics for the project: {0}'.format(project['label']))
     db.statistics.remove({'label': project['label']})
 
-    samples = db.sample.find({"project": project['label']}, timeout=False)
+    samples = db.sample.find({"project": project['label']})
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
@@ -239,7 +239,7 @@ def generate_statistics(project):
     p_statistics = partial(sample_statistics, project=project)
 
     pool.map(p_statistics, samples)
-    map(p_statistics, samples)
+    #map(p_statistics, samples)
 
     project_statistics(project)
 
@@ -258,7 +258,7 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
 
-    projects = db.project.find({'label': {'$in': args.projects}}, timeout=False)
+    projects = list(db.project.find({'label': {'$in': args.projects}}))
 
     map(generate_statistics, projects)
 

@@ -42,7 +42,7 @@ def get_meta(align_name):
     alignment = db.alignment.find_one({"name": align_name})
     try:
         sample = db.sample.find_one({"name": alignment['sample']})
-    except AttributeError:
+    except TypeError:
         exit(logger.error("Alignment {0} not found in Database.".format(align_name)))
 
     logger.debug('Subtraction for alignment: {0}'.format(align_name))
