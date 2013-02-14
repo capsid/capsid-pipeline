@@ -52,7 +52,7 @@ def check_align(args):
     return aln
 
 def get_meta(args):
-    '''Gather the meta data for the alignment from the database'''
+    """Gather the meta data for the alignment from the database"""
 
     aln = check_align(args)
     try:
@@ -73,13 +73,13 @@ def update_isref(readId):
 
 
 def extract_unmapped(align, fastq):
-    '''Output unmapped alignments to Fastq file'''
-
-    fastq.write('@'+str(align['qname'])+'\n'+str(align['seq'])+'\n+\n'+str(align['qqual'])+'\n')
+    """Output unmapped alignments to Fastq file"""
+    
+    fastq.write("@{0:>s}\n{1:>s}\n+\n{2:>s}\n".format(str(align.qname), str(align.query), str(align.qqual)))
 
 
 def maps_gene(mapped):
-    '''Determine if the mapped alignment falls within a gene.'''
+    """Determine if the mapped alignment falls within a gene."""
     global intersecters
 
     try:
