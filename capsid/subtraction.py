@@ -263,8 +263,8 @@ def insert_mapped(mapped, process):
     # If it maps to a genome save in the database, otherwise
     # just return the intersecting read id
     # new do not insert into mongo right now
-    #if mapped['genome'] and process in ['both', 'mapped']:
-    #    db.mapped.insert(mapped)
+    if mapped['genome'] and process in ['both', 'mapped']:
+        db.mapped.insert(mapped)
     
     return mapped['readId']
 
