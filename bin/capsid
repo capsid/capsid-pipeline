@@ -117,6 +117,9 @@ if __name__ == '__main__':
     subtract_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
     # MapQ score filter
     subtract_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
+    # Temp directory for processing 
+    subtract_parser.add_argument('-t', '--temp', metavar='DIR', default='./', help='temp dir used for sorting and digital subtraction')
+    subtract_parser.add_argument('-gra', action='store_true', default=False, help='calculate genome relative abundances (gra)')
     # Lookup Options
     lookupf = subtract_parser.add_argument_group()
     lookupf.add_argument('-l', '--lookup', metavar=('file', 'column'), nargs=2, default=None, help='lookup file and genome identifier(gi, accession) for both xeno and reference.')
