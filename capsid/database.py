@@ -35,6 +35,7 @@ def connect(args):
     logger.debug('Connecting to {0}:{1} ({2})'.format(address, port, database))
     connection = Connection(address, port)
     admindb = connection.admin
-    admindb.authenticate(username, password)
+    if password:
+        admindb.authenticate(username, password)
 
     return connection[database]
