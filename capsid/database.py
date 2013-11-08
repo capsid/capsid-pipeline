@@ -19,8 +19,7 @@ def connect(args):
 
     logger = args.logging.getLogger(__name__)
 
-    config = ConfigParser.ConfigParser()
-    config.read(os.path.expanduser('~/.capsid/capsid.cfg'))
+    config = get_configuration()
 
     try:
         address = config.get('MongoDB', 'host')
@@ -35,6 +34,14 @@ def connect(args):
     logger.debug('Connecting to {0}:{1} ({2})'.format(address, port, database))
     connection = Connection(address, port)
     admindb = connection.admin
-    admindb.authenticate(username, password)
+    if username:
+        admindb.authenticate(username, password)
 
     return connection[database]
+
+def get_configuration():
+
+    config = ConfigParser.ConfigParser()
+    config.read(os.path.expanduser('~/.capsid/capsid.cfg'))
+
+    return config
