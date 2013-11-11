@@ -256,5 +256,97 @@ class CapsidProjectTest(unittest.TestCase):
 
 
 
+class CapsidSampleTest(unittest.TestCase):
+
+    args = Object()
+    db = None
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL)
+        self.args.logging = logging
+
+        configuration = MockConfig()
+        setattr(capsid.database, 'get_configuration', lambda: configuration)
+
+        self.db = capsid.database.connect(self.args)
+        capsid.configure.logger = logging
+        capsid.configure.db = self.db
+
+        self.db = capsid.database.connect(self.args)
+
+        setattr(self.args, 'pdesc', "Project description")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'pname', "Simulated")
+        setattr(self.args, 'link', "Project link")
+        capsid.project.main(self.args)
+
+        setattr(self.args, 'pdesc', "Other project description")
+        setattr(self.args, 'project', "other")
+        setattr(self.args, 'pname', "Other")
+        setattr(self.args, 'link', "Project link")
+        capsid.project.main(self.args)
+
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'sdesc', "Simulated Sample")
+        setattr(self.args, 'cancer', "simulated")
+        setattr(self.args, 'source', "P")
+        setattr(self.args, 'role', "CASE")
+        capsid.sample.main(self.args)
+
+        setattr(self.args, 'sample', "SIMU002")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'sdesc', "Second Sample")
+        setattr(self.args, 'cancer', "simulated")
+        setattr(self.args, 'source', "P")
+        setattr(self.args, 'role', "CASE")
+        capsid.sample.main(self.args)
+
+
+    def tearDown(self):
+        self.db.project.remove()
+        self.db.role.remove()
+        self.db.sample.remove()
+        self.db.alignment.remove()
+        self.db.connection.disconnect()
+
+
+    def test_create_alignment(self):
+        '''
+        Check that we can create an alignment.
+        '''
+
+        setattr(self.args, 'aligner', "Aligner")
+        setattr(self.args, 'platform', "Platform")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'type', "Type")
+        setattr(self.args, 'projectLabel', "simu")
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'infile', "infile")
+        setattr(self.args, 'outfile', "outfile")
+
+        exitCode = 0
+
+        try:
+            capsid.alignment.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
+
+        alignment = self.db.alignment.find_one({"name": "simulated"})
+        self.assertIsNotNone(alignment)
+        self.assertEqual(alignment["aligner"], "Aligner")
+        self.assertEqual(alignment["platform"], "Platform")
+        self.assertEqual(alignment["name"], "simulated")
+        self.assertEqual(alignment["type"], "Type")
+        self.assertEqual(alignment["projectLabel"], "simu")
+        self.assertEqual(alignment["sample"], "SIMU001")
+        self.assertEqual(alignment["infile"], "infile")
+        self.assertEqual(alignment["outfile"], "outfile")
+        self.assertIsNotNone(alignment["sampleId"])
+        self.assertIsNotNone(alignment["projectId"])
+
+
 if __name__ == '__main__':
     unittest.main()

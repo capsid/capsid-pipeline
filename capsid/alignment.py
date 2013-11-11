@@ -24,24 +24,37 @@ import sample
 db, logger = None, None
 
 
-def check_sample(args):
-    if (not db.sample.find_one({"name": args.sample})):
-        args.sdesc = None
-        args.cancer = None
-        args.role = None
-        args.source = None
-        sample.main(args)
+def check_project(args):
+    project = db.project.find_one({"label": args.project})
+
+    if (not project):
+        logger.error("Project {0} does not exists".format(args.project))
+        sys.exit(1)
+    else:
+        return project
 
 
-def create_alignment(args):
+def check_sample(project, args):
+    sample = db.sample.find_one({"name": args.sample, "projectId": project["_id"]})
+
+    if (not sample):
+        logger.error("Sample {0} does not exist in project: {1}".format(args.sample, project["label"]))
+        sys.exit(1)
+    else:
+        return sample
+
+
+def create_alignment(project, sample, args):
     return {
         "aligner" : args.aligner,
         "infile" : args.infile,
         "name" : args.align,
         "outfile" : args.outfile,
         "platform" : args.platform,
-        "project" : args.project,
-        "sample" : args.sample,
+        "projectLabel" : project["label"],
+        "projectId" : project["_id"],
+        "sample" : sample["name"],
+        "sampleId" : sample["_id"],
         "type" : args.type,
         "version" : 0
         }
@@ -55,14 +68,16 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
     
-    check_sample(args)
+    project = check_project(args)
+    sample = check_sample(project, args)
     
     try:
-        db.alignment.insert(create_alignment(args), safe=True)
+        db.alignment.insert(create_alignment(project, sample, args), safe=True)
         logger.debug("alignment {0} inserted successfully".format(args.align))
         logger.info("Alignment {0} has been added to {1}/{2}".format(args.align, args.project, args.sample))
     except DuplicateKeyError:
-        logger.info("Alignment {0} already exists".format(args.align))
+        logger.error("Alignment {0} already exists in {1}/{2}".format(args.align, args.project, args.sample))
+        sys.exit(1)
 
 
 if __name__ == '__main__':

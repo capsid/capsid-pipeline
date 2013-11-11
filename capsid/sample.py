@@ -63,7 +63,6 @@ def main(args):
         logger.debug("sample {0} inserted successfully".format(args.sample))
         logger.info("Sample {0} has been added to {1}".format(args.sample, args.project))
     except DuplicateKeyError as inst:
-        logger.error("Error {0}".format(inst))
         logger.error("Sample {0} already exists in project: {1}".format(args.sample, project["label"]))
         sys.exit(1)
 
