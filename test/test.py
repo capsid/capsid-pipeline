@@ -419,5 +419,82 @@ class CapsidSampleTest(unittest.TestCase):
         self.assertEqual(exitCode, 0, "Should have an exit status of 0")
 
 
+
+class CapsidLoadTest(unittest.TestCase):
+
+    args = Object()
+    db = None
+
+    def setUp(self):
+        logging.basicConfig(level=logging.FATAL)
+        self.args.logging = logging
+
+        configuration = MockConfig()
+        setattr(capsid.database, 'get_configuration', lambda: configuration)
+
+        self.db = capsid.database.connect(self.args)
+        capsid.configure.logger = logging
+        capsid.configure.db = self.db
+
+        self.db = capsid.database.connect(self.args)
+
+        setattr(self.args, 'pdesc', "Project description")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'pname', "Simulated")
+        setattr(self.args, 'link', "Project link")
+        capsid.project.main(self.args)
+
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'sdesc', "Simulated Sample")
+        setattr(self.args, 'cancer', "simulated")
+        setattr(self.args, 'source', "P")
+        setattr(self.args, 'role', "CASE")
+        capsid.sample.main(self.args)
+
+
+    def tearDown(self):
+        self.db.project.remove()
+        self.db.role.remove()
+        self.db.sample.remove()
+        self.db.alignment.remove()
+        self.db.genome.remove()
+        self.db.feature.remove()
+        self.db.mapped.remove()
+
+        self.db.connection.disconnect()
+
+
+    def test_gbloader(self):
+        '''
+        Check that we can load Genbank files.
+        '''
+
+        setattr(self.args, 'files', ['test/data/human_genomes.gbff'])
+        setattr(self.args, 'repair', False)
+        exitCode = 0
+
+        try:
+            capsid.gbloader.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
+
+        genome = self.db.genome.find_one({"accession" : "NC_000020"})
+        self.assertIsNotNone(genome)
+        self.assertEquals(genome["name"], "Homo sapiens chromosome 20, GRCh37.p2 primary reference assembly.")
+        self.assertEquals(genome["gi"], 224589812)
+        self.assertEquals(genome["organism"], "Homo sapiens")
+        self.assertEquals(genome["length"], 63025520)
+
+        feature = self.db.feature.find_one({"name" : "TRNM", "genome" : 251831106})
+        self.assertIsNotNone(feature)
+        self.assertEquals(feature["name"], "TRNM")
+        self.assertEquals(feature["type"], "gene")
+        self.assertEquals(feature["start"], 4402)
+        self.assertEquals(feature["end"], 4469)
+
+
 if __name__ == '__main__':
     unittest.main()
