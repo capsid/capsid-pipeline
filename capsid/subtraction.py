@@ -42,16 +42,12 @@ temp = None
 
 
 def check_align(args):
-    aln = db.alignment.find_one({"name": args.align})
-    if not aln and args.sample and args.project:
-        logger.debug("Alignment {0} not found in Database.".format(args.align))
-        args.aligner = None
-        args.type = None
-        args.platform = None
-        args.infile = None
-        args.outfile = None
-        alignment.main(args)
-        aln = db.alignment.find_one({"name": args.align})
+
+    finder = {"name": args.align, "sample": args.sample, "projectLabel": args.project}
+    aln = db.alignment.find_one(finder)
+    if not aln:
+        logger.error("Alignment {0} not found in {1}/{2}.".format(args.align, args.project, args.sample))
+        sys.exit(1)
 
     return aln
 
@@ -59,10 +55,11 @@ def get_meta(args):
     """Gather the meta data for the alignment from the database"""
 
     aln = check_align(args)
-    try:
-        sample = db.sample.find_one({"name": aln['sample']})
-    except TypeError:
-        exit(logger.error("Alignment {0} not found in Database. --project and --sample need to be passed to auto-create".format(args.align)))
+    sample = db.sample.find_one({"_id": aln['sampleId']})
+
+    if not sample:
+        logger.error("Alignment {0} not found in database. --project and --sample need to be passed to auto-create".format(args.align))
+        exit(1)
 
     logger.debug('Subtraction for alignment: {0}'.format(args.align))
 
@@ -72,7 +69,7 @@ def get_meta(args):
 def update_isref(readId):
     ''' '''
 
-    db.mapped.update({'readId': readId, 'alignment':meta.alignment['name']},
+    db.mapped.update({'readId': readId, 'alignmentId':meta.alignment['_id']},
                      {'$set': {'isRef': 1}}, False, False, False, True)
 
 
@@ -184,9 +181,12 @@ def build_mapped(align, genome, reference):
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
        , "genome": int(genome)
-       , "project": meta.sample['project']
+       , "projectLabel": meta.sample['projectLabel']
+       , "projectId": meta.sample['projectId']
        , "sample": meta.sample['name']
+       , "sampleId": meta.sample['_id']
        , "alignment": meta.alignment['name']
+       , "alignmentId": meta.alignment['_id']
        , "platform": meta.alignment['platform']
        , "sequencingType": meta.alignment['type']
        , "sequence": align.query

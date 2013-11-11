@@ -2,6 +2,7 @@ import unittest
 import capsid
 import logging
 from mock import patch
+import os.path
 
 class Object(object):
     pass
@@ -426,7 +427,7 @@ class CapsidLoadTest(unittest.TestCase):
     db = None
 
     def setUp(self):
-        logging.basicConfig(level=logging.FATAL)
+        logging.basicConfig(level=logging.INFO)
         self.args.logging = logging
 
         configuration = MockConfig()
@@ -452,6 +453,16 @@ class CapsidLoadTest(unittest.TestCase):
         setattr(self.args, 'role', "CASE")
         capsid.sample.main(self.args)
 
+        setattr(self.args, 'aligner', "Aligner")
+        setattr(self.args, 'platform', "Platform")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'type', "Type")
+        setattr(self.args, 'projectLabel', "simu")
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'infile', "infile")
+        setattr(self.args, 'outfile', "outfile")
+        capsid.alignment.main(self.args)
+
 
     def tearDown(self):
         self.db.project.remove()
@@ -461,6 +472,13 @@ class CapsidLoadTest(unittest.TestCase):
         self.db.genome.remove()
         self.db.feature.remove()
         self.db.mapped.remove()
+        self.db['fs.files'].remove()
+        self.db['fs.chunks'].remove()
+
+        try:
+            os.remove("genomes.fa")
+        except OSError:
+            pass
 
         self.db.connection.disconnect()
 
@@ -472,6 +490,7 @@ class CapsidLoadTest(unittest.TestCase):
 
         setattr(self.args, 'files', ['test/data/human_genomes.gbff'])
         setattr(self.args, 'repair', False)
+
         exitCode = 0
 
         try:
@@ -494,6 +513,51 @@ class CapsidLoadTest(unittest.TestCase):
         self.assertEquals(feature["type"], "gene")
         self.assertEquals(feature["start"], 4402)
         self.assertEquals(feature["end"], 4469)
+
+        # Now we can do the fasta thing. In theory.
+
+        setattr(self.args, 'output', "genomes.fa")
+        setattr(self.args, 'organism', None)
+        setattr(self.args, 'taxonomy', None)
+        setattr(self.args, 'ref', None)
+        setattr(self.args, 'gi', None)
+
+        exitCode = 0
+
+        try:
+            capsid.fasta.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
+
+        # And the file genomes.fa should exist at this stage. 
+        self.assertTrue(os.path.exists("genomes.fa"))
+
+        # Now for a wee bit of subtraction
+        setattr(self.args, 'xeno', "test/data/vg.sorted.bam")
+        setattr(self.args, 'ref', "test/data/hg.sorted.bam")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'process', "mapped")
+        setattr(self.args, 'gra', False)
+        setattr(self.args, 'temp', ".")
+        setattr(self.args, 'lookup', None)
+        setattr(self.args, 'filter', 0)
+        setattr(self.args, 'xeno_lookup', [None, None])
+        setattr(self.args, 'ref_lookup', [None, None])
+
+        exitCode = 0
+
+        try:
+            capsid.subtraction.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
+
+
 
 
 if __name__ == '__main__':

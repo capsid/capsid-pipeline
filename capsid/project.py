@@ -51,7 +51,7 @@ def main(args):
         logger.debug("project {0} inserted successfully".format(args.project))
         db.role.insert(create_role(args), safe=True)
         logger.debug("role {0} inserted successfully".format(args.project))
-        logger.info("Project {0} added successfully to the Database".format(args.project))
+        logger.info("Project {0} added successfully to the database".format(args.project))
     except DuplicateKeyError:
         logger.error("Project {0} already exists".format(args.project))
         sys.exit(1)
