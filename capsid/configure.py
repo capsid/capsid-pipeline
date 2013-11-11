@@ -30,8 +30,7 @@ def ensure_indexes():
 
     # Sample
     logger.debug('Adding Sample Indices')
-    db.sample.ensure_index('name', unique=True)
-    db.sample.ensure_index('project')
+    db.sample.ensure_index([('projectId', pymongo.ASCENDING), ('name', pymongo.ASCENDING)], unique=True)
 
     # Alignment
     logger.debug('Adding Alignment Index')

@@ -49,7 +49,7 @@ class CapsidTest(unittest.TestCase):
         Check that a database connection is truly possible
         '''
         self.db = capsid.database.connect(self.args)
-        assert self.db
+        self.assertIsNotNone(self.db)
 
 
     def test_ensure_indexes(self):
@@ -86,11 +86,12 @@ class CapsidTest(unittest.TestCase):
         
         # We now use mongo to check we have that project
         project = self.db.project.find_one({"label": "simu"})
-        assert project
-        assert project['description'] == "Project description"
-        assert project['label'] == "simu"
-        assert project['name'] == "Simulated"
-        assert project['wikiLink'] == "Project link"
+
+        self.assertIsNotNone(project)
+        self.assertEqual(project['description'], "Project description")
+        self.assertEqual(project['label'], "simu")
+        self.assertEqual(project['name'], "Simulated")
+        self.assertEqual(project['wikiLink'], "Project link")
 
 
 class CapsidProjectTest(unittest.TestCase):
@@ -114,6 +115,12 @@ class CapsidProjectTest(unittest.TestCase):
         setattr(self.args, 'pdesc', "Project description")
         setattr(self.args, 'project', "simu")
         setattr(self.args, 'pname', "Simulated")
+        setattr(self.args, 'link', "Project link")
+        capsid.project.main(self.args)
+
+        setattr(self.args, 'pdesc', "Other project description")
+        setattr(self.args, 'project', "other")
+        setattr(self.args, 'pname', "Other")
         setattr(self.args, 'link', "Project link")
         capsid.project.main(self.args)
 
@@ -214,6 +221,38 @@ class CapsidProjectTest(unittest.TestCase):
             exitCode = inst.code
 
         self.assertEqual(exitCode, 1, "Should have an exit status of 1")
+
+
+    def test_create_sample_second_project(self):
+        '''
+        Check that we can create a sample with the same identifier, within
+        a different project.
+        '''
+
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'project', "simu")
+        setattr(self.args, 'sdesc', "Simulated Sample")
+        setattr(self.args, 'cancer', "simulated")
+        setattr(self.args, 'source', "P")
+        setattr(self.args, 'role', "CASE")
+
+        capsid.sample.main(self.args)
+
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'project', "other")
+        setattr(self.args, 'sdesc', "Second Sample")
+        setattr(self.args, 'cancer', "simulated")
+        setattr(self.args, 'source', "P")
+        setattr(self.args, 'role', "CASE")
+
+        exitCode = 0
+
+        try:
+            capsid.sample.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
 
 
 
