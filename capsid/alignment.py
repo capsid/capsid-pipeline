@@ -20,6 +20,7 @@ from pymongo.errors import DuplicateKeyError
 
 from database import *
 import sample
+import sys
 
 db, logger = None, None
 
@@ -72,7 +73,8 @@ def main(args):
     sample = check_sample(project, args)
     
     try:
-        db.alignment.insert(create_alignment(project, sample, args), safe=True)
+        alignment = create_alignment(project, sample, args)
+        db.alignment.insert(alignment, safe=True)
         logger.debug("alignment {0} inserted successfully".format(args.align))
         logger.info("Alignment {0} has been added to {1}/{2}".format(args.align, args.project, args.sample))
     except DuplicateKeyError:

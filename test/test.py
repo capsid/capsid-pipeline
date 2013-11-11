@@ -348,5 +348,76 @@ class CapsidSampleTest(unittest.TestCase):
         self.assertIsNotNone(alignment["projectId"])
 
 
+    def test_create_duplicate_alignment(self):
+        '''
+        Check that we can't create an alignment with the same name in the same sample.
+        '''
+
+        setattr(self.args, 'aligner', "Aligner")
+        setattr(self.args, 'platform', "Platform")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'type', "Type")
+        setattr(self.args, 'projectLabel', "simu")
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'infile', "infile")
+        setattr(self.args, 'outfile', "outfile")
+        capsid.alignment.main(self.args)
+
+
+        setattr(self.args, 'aligner', "Second Aligner")
+        setattr(self.args, 'platform', "Second Platform")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'type', "Second Type")
+        setattr(self.args, 'projectLabel', "simu")
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'infile', "Second infile")
+        setattr(self.args, 'outfile', "Second outfile")
+
+        exitCode = 0
+
+        try:
+            capsid.alignment.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 1, "Should have an exit status of 1")
+
+
+    def test_create_alignment_second_sample(self):
+        '''
+        Check that we can create an alignment with the same name, so long as 
+        do that in a different sample.
+        '''
+
+        setattr(self.args, 'aligner', "Aligner")
+        setattr(self.args, 'platform', "Platform")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'type', "Type")
+        setattr(self.args, 'projectLabel', "simu")
+        setattr(self.args, 'sample', "SIMU001")
+        setattr(self.args, 'infile', "infile")
+        setattr(self.args, 'outfile', "outfile")
+        capsid.alignment.main(self.args)
+
+
+        setattr(self.args, 'aligner', "Second Aligner")
+        setattr(self.args, 'platform', "Second Platform")
+        setattr(self.args, 'align', "simulated")
+        setattr(self.args, 'type', "Second Type")
+        setattr(self.args, 'projectLabel', "simu")
+        setattr(self.args, 'sample', "SIMU002")
+        setattr(self.args, 'infile', "Second infile")
+        setattr(self.args, 'outfile', "Second outfile")
+
+        exitCode = 0
+
+        try:
+            capsid.alignment.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
+
+
 if __name__ == '__main__':
     unittest.main()

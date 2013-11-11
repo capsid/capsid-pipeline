@@ -34,7 +34,7 @@ def ensure_indexes():
 
     # Alignment
     logger.debug('Adding Alignment Index')
-    db.alignment.ensure_index('name', unique=True)
+    db.alignment.ensure_index([('projectId', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('name', pymongo.ASCENDING)], unique=True)
 
     # Genome
     logger.debug('Adding Genome Indices')
