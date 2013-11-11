@@ -488,7 +488,7 @@ class CapsidLoadTest(unittest.TestCase):
         Check that we can load Genbank files.
         '''
 
-        setattr(self.args, 'files', ['test/data/human_genomes.gbff'])
+        setattr(self.args, 'files', ['test/data/tinyviral.1.genomic.gbff', 'test/data/human_genomes.gbff'])
         setattr(self.args, 'repair', False)
 
         exitCode = 0
@@ -534,6 +534,7 @@ class CapsidLoadTest(unittest.TestCase):
         # And the file genomes.fa should exist at this stage. 
         self.assertTrue(os.path.exists("genomes.fa"))
 
+
         # Now for a wee bit of subtraction
         setattr(self.args, 'xeno', "test/data/vg.sorted.bam")
         setattr(self.args, 'ref', "test/data/hg.sorted.bam")
@@ -558,7 +559,31 @@ class CapsidLoadTest(unittest.TestCase):
         self.assertEqual(exitCode, 0, "Should have an exit status of 0")
 
 
+        # Right, almost done. Statistics
+        setattr(self.args, 'projects', ["simu"])
 
+        exitCode = 0
+
+        try:
+            capsid.statistics.main(self.args)
+        except SystemExit as inst:
+            exitCode = inst.code
+
+        self.assertEqual(exitCode, 0, "Should have an exit status of 0")
+
+
+        mapped = self.db.mapped.find_one({'sample': 'SIMU001', 'projectLabel': 'simu'})
+        self.assertIsNotNone(mapped)
+
+        stats = self.db.statistics.find_one({"accession" : 'NC_001357', 'sample': 'SIMU001', 'projectLabel': 'simu'})
+        self.assertIsNotNone(stats)
+        self.assertEqual(stats['geneHits'], 9)
+        self.assertEqual(stats['genome'], 'Human papillomavirus - 18, complete genome.')
+
+        stats = self.db.statistics.find_one({"accession" : 'NC_001357', 'sample': {'$exists' : False}, 'projectLabel': 'simu'})
+        self.assertIsNotNone(stats)
+        self.assertEqual(stats['geneHits'], 9)
+        self.assertEqual(stats['genome'], 'Human papillomavirus - 18, complete genome.')
 
 if __name__ == '__main__':
     unittest.main()

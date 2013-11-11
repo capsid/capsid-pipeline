@@ -33,10 +33,12 @@ counter = Counter(count(), count(), count(), count(), count())
 def valid_seq(record):
     '''Filters out unknown sequences that are all 'N' so they are not saved'''
 
-    filtered = record.seq.tostring().strip('N')
-    m = re.search('[AGCT]', filtered)
-
-    return bool(m)
+    # This is strangely much faster than regexes. Double the speed, or even a little more
+    string = record.seq.tostring()
+    if 'A' in string or 'C' in string or 'G' in string or 'T' in string:
+        return True
+    else:
+        return False
 
 
 def extract_sequence(record, genome, delete=False):
