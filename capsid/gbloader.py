@@ -33,7 +33,8 @@ counter = Counter(count(), count(), count(), count(), count())
 def valid_seq(record):
     '''Filters out unknown sequences that are all 'N' so they are not saved'''
 
-    m = re.search('[AGCT]', record.seq.tostring())
+    filtered = record.seq.tostring().strip('N')
+    m = re.search('[AGCT]', filtered)
 
     return bool(m)
 
