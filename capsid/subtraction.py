@@ -17,6 +17,7 @@ from functools import partial
 import re
 import os, sys
 import subprocess
+import csv
 
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
@@ -98,6 +99,21 @@ def extract_hg_readIds(align,hgids):
     """Output mapped hg readId to a file"""
     hgids.write("{0:>s}\n".format(align.qname))
 
+def get_readscan_data(readscan_file):
+    row_number = 0
+    genome_identifier = re.compile("gi:(\d+)")
+    with open(readscan_file, 'rU') as f:
+        readscan_reader = csv.DictReader(f, delimiter='\t', quotechar='|')
+        for row in readscan_reader:
+            row['row'] = row_number
+            row_number = row_number + 1
+            if row.has_key(None):
+                del row[None]
+            match = genome_identifier.match(row['id'])
+            if match:
+                row['genome'] = int(match.group(1))
+            yield row
+
 # new
 def get_only_xeno_reads(pathogen, human, args):
     """Obtain reads in sam format that only map to xeno"""    
@@ -114,8 +130,13 @@ def get_only_xeno_reads(pathogen, human, args):
     if subprocess.call([gra, temp + pathogen, temp + human, args.xeno.rsplit('/',1)[0]]) != 0:
         logger.error("Failed to calculate genome relative abundance successfully")
         sys.exit(1)
-    #seqware version
-    #subprocess.call([gra, temp + pathogen, temp + human, temp])
+
+    readscan_file = args.xeno.rsplit('/',1)[0] + '/pathogen.gra.txt'
+    result = list(get_readscan_data(readscan_file))
+
+    selector = {"_id" : meta.alignment['_id']}
+    updater = {"$set" : {"gra" : result}}
+    db.alignment.update(selector, updater)
     
  
 def maps_gene(mapped):

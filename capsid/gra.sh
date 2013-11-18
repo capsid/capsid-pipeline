@@ -34,6 +34,6 @@ fi
 
 # echo "Command: ${directory}/readscan.pl stats -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz"
 
-perl ${directory}/readscan.pl stats -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz > $out/pathogen.gra.txt
+perl ${directory}/readscan.pl stats --data -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz > $out/pathogen.gra.txt
 
 echo $(date +%T)" Genome relative abundance finished..."
