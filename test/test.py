@@ -542,7 +542,7 @@ class CapsidLoadTest(unittest.TestCase):
         setattr(self.args, 'sample', "SIMU001")
         setattr(self.args, 'project', "simu")
         setattr(self.args, 'process', "mapped")
-        setattr(self.args, 'gra', False)
+        setattr(self.args, 'gra', True)
         setattr(self.args, 'temp', ".")
         setattr(self.args, 'lookup', None)
         setattr(self.args, 'filter', 0)

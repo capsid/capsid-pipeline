@@ -102,12 +102,18 @@ def extract_hg_readIds(align,hgids):
 def get_only_xeno_reads(pathogen, human, args):
     """Obtain reads in sam format that only map to xeno"""    
     #print args.xeno.rsplit('/',1)[0]
-    subprocess.call(['sort', temp + pathogen, '-t\t', '+0', '-1', '-T', temp, '-o', temp + pathogen + '.sorted'])
-    subprocess.call(['sort', temp + human, '-t\t', '+0', '-1', '-T', temp, '-o', temp + human  + '.sorted'])
+    if subprocess.call(['sort', temp + pathogen, '-t\t', '--key=1,1', '-T', temp, '-o', temp + pathogen + '.sorted']) != 0:
+        logger.error("Error sorting {0}".format(temp + pathogen))
+        sys.exit(1)
+    if subprocess.call(['sort', temp + human, '-t\t', '--key=1,1', '-T', temp, '-o', temp + human  + '.sorted']) != 0:
+        logger.error("Error sorting {0}".format(temp + pathogen))
+        sys.exit(1)
     os.remove(temp + pathogen)
     os.remove(temp + human) 
     gra = __file__.rsplit('/',1)[0] + '/gra.sh'
-    subprocess.call([gra, temp + pathogen, temp + human, args.xeno.rsplit('/',1)[0]])
+    if subprocess.call([gra, temp + pathogen, temp + human, args.xeno.rsplit('/',1)[0]]) != 0:
+        logger.error("Failed to calculate genome relative abundance successfully")
+        sys.exit(1)
     #seqware version
     #subprocess.call([gra, temp + pathogen, temp + human, temp])
     
