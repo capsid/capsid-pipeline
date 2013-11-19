@@ -629,6 +629,9 @@ sub gra{
 				}
 # re initialise RGHit for the next read 
 				%RGHit=();
+				if (! defined $glength{$reference}) {
+					die("Internal error: can't find reference data: $reference");
+				}
 				$RGHit{$reference}+=(1/$glength{$reference});
 			}
 			$previous_read_name=$read_name;
