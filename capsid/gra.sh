@@ -12,9 +12,9 @@ directory="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 #cat $xeno | sort -t$'\t' +0 -1 -T $temp > $xeno.sorted
 #cat $human | sort -t$'\t' +0 -1 -T $temp | uniq > $human.sorted
 
-cat $human.sorted | uniq > $human.sorted.uniq
+cat $human | uniq > $human.sorted.uniq
 
-join -v1 -t$'\t' -1 1 -2 1 $xeno.sorted  $human.sorted.uniq  > $out/pathogen.sam
+join -v1 -t$'\t' -1 1 -2 1 $xeno  $human.sorted.uniq  > $out/pathogen.sam
 
 # rm $xeno.sorted $human.sorted $human.sorted.uniq
 
@@ -32,8 +32,7 @@ if [[ ! $READSCAN_TAXON ]]; then
 	exit 1
 fi
 
-# echo "Command: ${directory}/readscan.pl stats -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz"
-
+echo $(date +%T)" perl ${directory}/readscan.pl stats -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz"
 perl ${directory}/readscan.pl stats --data -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz > $out/pathogen.gra.txt
 
 echo $(date +%T)" Genome relative abundance finished..."

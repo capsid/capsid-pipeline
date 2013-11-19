@@ -118,20 +118,35 @@ def get_readscan_data(readscan_file):
 def get_only_xeno_reads(pathogen, human, args):
     """Obtain reads in sam format that only map to xeno"""    
     #print args.xeno.rsplit('/',1)[0]
-    if subprocess.call(['sort', temp + pathogen, '-t\t', '--key=1,1', '-T', temp, '-o', temp + pathogen + '.sorted']) != 0:
-        logger.error("Error sorting {0}".format(temp + pathogen))
+    logger.info("Temporary directory: {0}".format(temp))
+    logger.info("Sorting {0}".format(temp + pathogen))
+
+    pathogen_input_file = temp + pathogen
+    pathogen_sorted_file = temp + pathogen + '.sorted'
+    human_input_file = temp + human
+    human_sorted_file = temp + human + '.sorted'
+
+    if subprocess.call(['sort', pathogen_input_file, '-t\t', '--key=1,1', '-T', temp, '-o', pathogen_sorted_file]) != 0:
+        logger.error("Error sorting {0}".format(pathogen_input_file))
         sys.exit(1)
-    if subprocess.call(['sort', temp + human, '-t\t', '--key=1,1', '-T', temp, '-o', temp + human  + '.sorted']) != 0:
-        logger.error("Error sorting {0}".format(temp + pathogen))
+    logger.info("Sorting {0}".format(temp + human))
+    if subprocess.call(['sort', human_input_file, '-t\t', '--key=1,1', '-T', temp, '-o', human_sorted_file]) != 0:
+        logger.error("Error sorting {0}".format(human_input_file))
         sys.exit(1)
-    os.remove(temp + pathogen)
-    os.remove(temp + human) 
+        
+    os.remove(pathogen_input_file)
+    os.remove(human_input_file)
+
+    xeno_file = os.path.abspath(args.xeno)
+    xeno_directory = os.path.dirname(xeno_file)
+
     gra = __file__.rsplit('/',1)[0] + '/gra.sh'
-    if subprocess.call([gra, temp + pathogen, temp + human, args.xeno.rsplit('/',1)[0]]) != 0:
+    logger.info("Output directory: {0}".format(xeno_directory))
+    if subprocess.call([gra, pathogen_sorted_file, human_sorted_file, xeno_directory]) != 0:
         logger.error("Failed to calculate genome relative abundance successfully")
         sys.exit(1)
 
-    readscan_file = args.xeno.rsplit('/',1)[0] + '/pathogen.gra.txt'
+    readscan_file = xeno_directory + '/pathogen.gra.txt'
     result = list(get_readscan_data(readscan_file))
 
     selector = {"_id" : meta.alignment['_id']}

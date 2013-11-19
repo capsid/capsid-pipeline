@@ -380,6 +380,7 @@ my %gi_gra=();
 		my @taxon_types=("species","genus","family","order","class","phylum");
 		for my $gi (keys %gi_gra){
 			my $taxon=get_taxon($gi, \%gi_gra, $taxon_dir);
+			next if (! $taxon);
 			my $rank="";
 			my $parent_node="";
 			my $leaf_taxon=$taxon;
