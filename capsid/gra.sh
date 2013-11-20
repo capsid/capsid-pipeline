@@ -12,9 +12,9 @@ directory="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 #cat $xeno | sort -t$'\t' +0 -1 -T $temp > $xeno.sorted
 #cat $human | sort -t$'\t' +0 -1 -T $temp | uniq > $human.sorted
 
-cat $human | uniq > $human.sorted.uniq
+cat $human | uniq > $human.uniq
 
-join -v1 -t$'\t' -1 1 -2 1 $xeno  $human.sorted.uniq  > $out/pathogen.sam
+join -v1 -t$'\t' -1 1 -2 1 $xeno  $human.uniq  > $out/pathogen.sam
 
 # rm $xeno.sorted $human.sorted $human.sorted.uniq
 
