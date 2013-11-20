@@ -326,10 +326,10 @@ my %gi_gra=();
 		}
 		else{
 			foreach my $value (reverse (sort {$gra{$a} <=> $gra{$b} } keys %gra)){
-			my $stats_line=	sprintf "%20d\t%20d\t%20d\t%5.2f\t%10.1f\t%s\n",$ref_hit{$value},$ref_coverage{$value},$reffile_refname_length{$value},$genome_perc_coverage{$value},$ref_weighted_mean_contig_length{$value},$reffile_refname_reffullname{$value};
-			my ($a,$gi,@dontbother)=split('\|',$value);
-			$gi_statsline{$gi}=$stats_line;
-			$gi_gra{$gi}=$gra{$value};
+				my $stats_line=	sprintf "%20d\t%20d\t%20d\t%5.2f\t%10.1f\t%s\n",$ref_hit{$value},$ref_coverage{$value},$reffile_refname_length{$value},$genome_perc_coverage{$value},$ref_weighted_mean_contig_length{$value},$reffile_refname_reffullname{$value};
+				my ($a,$gi,@dontbother)=split('\|',$value);
+				$gi_statsline{$gi}=$stats_line;
+				$gi_gra{$gi}=$gra{$value};
 			}
 		}
 		close(REFFILE);
