@@ -103,8 +103,8 @@ def setup_config(args):
     config.set('MongoDB', 'host', args.host or raw_input('Host [localhost]: ') or 'localhost')
     config.set('MongoDB', 'port', args.port or raw_input('Port [27017]: ') or '27017')
     config.set('MongoDB', 'database', args.database or raw_input('Database [capsid]: ') or 'capsid')
-    config.set('MongoDB', 'username', args.username or raw_input('Username [capsid]: ') or 'capsid')
-    config.set('MongoDB', 'password', args.password or getpass.getpass('Password: '))
+    config.set('MongoDB', 'username', args.username or raw_input('Username [none]: '))
+    config.set('MongoDB', 'password', args.password or getpass.getpass('Password [none]: '))
 
     # Writing our configuration file
     with open(os.path.expanduser('~/.capsid/capsid.cfg'), 'wb') as configfile:
