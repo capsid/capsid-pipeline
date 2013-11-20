@@ -8,7 +8,7 @@ web-based software application for managing, querying and visualizing results.
 
 **Project Leader** Vincent Ferretti
 
-**Development Team** Ivan Borozan, Philippe Laflamme, Shane Wilson
+**Development Team** Ivan Borozan, Philippe Laflamme, Shane Wilson, Stuart Watt
 
 Downloading and using **CaPSID** is free, if you use **CaPSID** or its code in your
 work please acknowledge **CaPSID** by referring to its GitHub homepage https://github.com/capsid. 
