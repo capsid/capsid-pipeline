@@ -106,6 +106,8 @@ def get_readscan_data(readscan_file):
         readscan_reader = csv.DictReader(f, delimiter='\t', quotechar='|')
         for row in readscan_reader:
             row['row'] = row_number
+            row['index'] = int(row['index'])
+            row['score'] = float(row['score'])
             row_number = row_number + 1
             if row.has_key(None):
                 del row[None]

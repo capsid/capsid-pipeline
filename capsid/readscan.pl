@@ -481,7 +481,7 @@ my %gi_gra=();
 			my $taxon = get_taxon($gi, \%gi_gra, $taxon_dir);
 			my $taxon_parent_key=$taxon."-sequence";
 			if(! $taxon){
-				print $prefix.$number."\t"."UNKNOWN TAXON  "."\t".$gi_gra{$gi}."\t".$gi_statsline{$gi};
+				print $prefix.$number."\t"."UNKNOWN TAXON"."\t"."gi:".$gi."\t"."UNKNOWN TAXON"."\t".$gi_gra{$gi}."\t".$gi_statsline{$gi};
 			}
 			else{
 				print $prefix.$number."\t"."ti:".$taxon_parent{$taxon_parent_key}."\t"."gi:".$gi."\t".$node_names{$taxon}."\t".$gi_gra{$gi}."\t".$gi_statsline{$gi};
@@ -490,7 +490,6 @@ my %gi_gra=();
 		}
 
 	}
-
 }
 
 sub readscan_arguments{
