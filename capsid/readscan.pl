@@ -144,7 +144,7 @@ sub readscan_stats{
 		}
 	}
 	my $sorted_sam="$i_sam_file"."_sorted";
-	system("gunzip -c $i_sam_file | sort -T . -k1,1 -k3,3 > $sorted_sam");
+	system("gunzip -c $i_sam_file | sort -T . -d -k1,1 -k3,3 > $sorted_sam");
 	my $gra_ref=gra("$sorted_sam",$refstat_file);	
 	system("rm $sorted_sam");
 	my %gra=%{$gra_ref};

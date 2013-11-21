@@ -126,11 +126,11 @@ def get_only_xeno_reads(pathogen, human, args):
     human_input_file = temp + human
     human_sorted_file = temp + human + '.sorted'
 
-    if subprocess.call(['sort', pathogen_input_file, '-t\t', '--key=1,1', '-T', temp, '-o', pathogen_sorted_file]) != 0:
+    if subprocess.call(['sort', pathogen_input_file, '-t\t', '-d', '--key=1,1', '-T', temp, '-o', pathogen_sorted_file]) != 0:
         logger.error("Error sorting {0}".format(pathogen_input_file))
         sys.exit(1)
     logger.info("Sorting {0}".format(temp + human))
-    if subprocess.call(['sort', human_input_file, '-t\t', '--key=1,1', '-T', temp, '-o', human_sorted_file]) != 0:
+    if subprocess.call(['sort', human_input_file, '-t\t', '-d', '--key=1,1', '-T', temp, '-o', human_sorted_file]) != 0:
         logger.error("Error sorting {0}".format(human_input_file))
         sys.exit(1)
         
