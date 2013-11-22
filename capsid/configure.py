@@ -25,30 +25,30 @@ def ensure_indexes():
     '''Creates the MongoDB Indices needed to effeciently run CaPSID'''
 
     # Project
-    logger.debug('Adding Project Index')
+    logger.info('Adding Project Index')
     db.project.ensure_index('label', unique=True)
 
     # Sample
-    logger.debug('Adding Sample Indices')
+    logger.info('Adding Sample Indices')
     db.sample.ensure_index([('projectId', pymongo.ASCENDING), ('name', pymongo.ASCENDING)], unique=True)
 
     # Alignment
-    logger.debug('Adding Alignment Index')
+    logger.info('Adding Alignment Index')
     db.alignment.ensure_index([('projectId', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('name', pymongo.ASCENDING)], unique=True)
 
     # Genome
-    logger.debug('Adding Genome Indices')
+    logger.info('Adding Genome Indices')
     db.genome.ensure_index('gi', unique=True)
     db.genome.ensure_index('accession', unique=True)
     db.genome.ensure_index('pending', sparse=True)
 
     # Feature
-    logger.debug('Adding Feature Indices')
+    logger.info('Adding Feature Indices')
     db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
     db.feature.ensure_index('start')
 
     # Mapped
-    logger.debug('Adding Mapped Indices')
+    logger.info('Adding Mapped Indices')
     db.mapped.ensure_index('refStart')
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('projectId', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
@@ -56,19 +56,19 @@ def ensure_indexes():
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignmentId', pymongo.ASCENDING), ('refStrand', pymongo.ASCENDING)])
     
     # User
-    logger.debug('Adding User Index')
+    logger.info('Adding User Index')
     db.user.ensure_index('username', unique=True)
 
     # Role
-    logger.debug('Adding Role Index')
+    logger.info('Adding Role Index')
     db.role.ensure_index('authority', unique=True)
 
     # UserRole
-    logger.debug('Adding UserRole Index')
+    logger.info('Adding UserRole Index')
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
 
     #statistics
-    logger.debug('Adding Statistics Index')
+    logger.info('Adding Statistics Index')
     db.statistics.ensure_index('sampleId')
     db.statistics.ensure_index('genome')
 

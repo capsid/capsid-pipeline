@@ -19,6 +19,9 @@ def configure_(args):
 def gbloader_(args):
     capsid.gbloader.main(args)
 
+def taxonomy_(args):
+    capsid.taxonomy.main(args)
+
 def fasta_(args):
     capsid.fasta.main(args)
 
@@ -84,6 +87,20 @@ if __name__ == '__main__':
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
     # AutoRun
     gbloader_parser.set_defaults(func=gbloader_)
+
+    ### Taxonomy Loader ########################################################
+    taxonomy_parser = subparsers.add_parser('taxonomy',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter,
+                                            description='Taxonomy Loader\n\nExample:\n\tcapsid taxonomy taxon_directory',
+                                            help='Taxonomy Loader')
+    taxonomy_parser.add_argument('directory', metavar='F', help='Taxonomy data directory')
+    taxonomy_parser.add_argument('--repair', action='store_true', default=False, help='Overwrite existing taxa instead of skipping them')
+    ## Logging Options
+    verbose_debug = taxonomy_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to WARNING')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    taxonomy_parser.set_defaults(func=taxonomy_)
 
     ### Fasta Generator #######################################################
     fasta_parser = subparsers.add_parser('fasta',
