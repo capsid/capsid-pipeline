@@ -12,6 +12,7 @@
 
 import pymongo 
 import os.path
+import subprocess
 
 from database import *
 
@@ -74,9 +75,6 @@ def load_taxonomy_data(name_file, node_file):
 
     logger.info("Loading taxonomy nodes: {0}".format(node_file))
 
-    mongo = pymongo.Connection()
-    mongo_collection = mongo.capsid.taxa
-
     NodesFile = open(node_file)
 
     for line in NodesFile:
@@ -98,12 +96,84 @@ def load_taxonomy_data(name_file, node_file):
             #"GenCode" : int(fields[6]),            # Genomic genetic code
             #"MitCode" : int(fields[8])         # Mitochondrial code
             }
-        mongo_collection.update({'_id': taxID},NCBIdata,True)
+        db.taxa.update({'_id': taxID},NCBIdata,True)
 
     logger.info("Adding parent index")
-    mongo_collection.ensure_index('parent')
+    db.taxa.ensure_index('parent')
 
-    update_tree(mongo_collection)
+    logger.info("Calculating nested set values")
+    update_tree(db.taxa)
+
+    logger.info("Adding left index")
+    db.taxa.ensure_index('left')
+
+
+def load_taxonomy_genomes(genome_file):
+
+    taxon_viral_full = db.taxa.find({ 'rank': 'superkingdom', 'sciName': 'Viruses'})
+
+    viral = taxon_viral_full[0]
+    r = taxon_viral_full[0]['right']
+    l = taxon_viral_full[0]['left']
+
+    logger.info('Retrieving all the viral taxa')
+
+    viral_taxa_all = []
+    viral_taxa_dict = {}
+
+    taxon_ids = db.taxa.find( {'left': { '$gt': l }, 'right': { '$lt': r }}, { '_id': 1} )
+    tax_array = []
+    for taxid in taxon_ids:
+        tax_array.append(taxid['_id'])
+        viral_taxa_dict[taxid['_id']] = True
+    viral_taxa_all = viral_taxa_all + tax_array
+
+    logger.info("Total number of viral taxa: {0}".format(len(viral_taxa_all)))
+
+    logger.info("Loading viral genome identifiers")
+
+    # We could sort the file, but it's actually a bad idea. That's because the sort 
+    # works on the whole file, which is huge. We are only interested in a subset of
+    # genomes. Also, we switched to use a dict to test for the match, which is 
+    # much faster in this loop. 
+    gi_file = open(genome_file)
+
+    db.gitaxid.remove()
+
+    list_gi = []
+    current = None
+
+    for line in gi_file:
+        elements = line.split('\t')
+        gi  = int(elements[0])
+        taxid = int(elements[1])
+
+        if taxid != 0 and (taxid in viral_taxa_dict):
+            if current == None:
+                current = taxid
+
+            if taxid == current:
+                list_gi.append(gi)   
+            else:
+                db.gitaxid.update({'_id': current}, {'$addToSet': { 'gi': {'$each': list_gi }}}, True)
+                current = taxid
+                list_gi = [gi] 
+
+    db.gitaxid.update({'_id': current}, {'$addToSet': { 'gi': {'$each': list_gi }}}, True)
+
+    logger.info("Finished Loading viral genome identifiers")
+
+
+def update_genomes():
+    '''
+    Adds the preorder tree traversal values to the genomes
+    '''
+
+    logger.info("Calculating nested set values for genomes")
+    genomes = db.gitaxid.find({}, { '_id': 1, 'gi': 1})
+    for genome in genomes:
+        taxon = db.taxa.find_one({'_id': genome['_id']}, {'left': 1})
+        db.genome.update({'gi': {'$in': genome['gi']}}, {'$set': {'left': taxon['left']}}, multi=True)
 
 
 def update_tree(collection): 
@@ -132,7 +202,13 @@ def load_taxonomy(directory, repair):
 
     name_file = os.path.join(directory, 'names.dmp')
     node_file = os.path.join(directory, 'nodes.dmp')
+
     load_taxonomy_data(name_file, node_file)
+
+    genome_file = os.path.join(directory, 'gi_taxid_nucl.dmp')
+    load_taxonomy_genomes(genome_file)
+
+    update_genomes()
 
 
 if __name__ == '__main__':
