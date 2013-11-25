@@ -232,6 +232,8 @@ def build_alignment_stats(project, alignment, genome):
         ,  "project": project['name']
         ,  "projectId": project['_id']
         ,  "alignment": alignment['name']
+        ,  "sample": alignment['sample']
+        ,  "sampleId": alignment['sampleId']
         ,  "alignmentId": alignment['_id']
         ,  "genomeHits": genome_hit_count
         ,  "geneHits": gene_hit_count
