@@ -173,7 +173,7 @@ def update_genomes():
     genomes = db.gitaxid.find({}, { '_id': 1, 'gi': 1})
     for genome in genomes:
         taxon = db.taxa.find_one({'_id': genome['_id']}, {'left': 1})
-        db.genome.update({'gi': {'$in': genome['gi']}}, {'$set': {'left': taxon['left']}}, multi=True)
+        db.genome.update({'gi': {'$in': genome['gi']}}, {'$set': {'left': taxon['left'], 'taxonId': taxon['_id']}}, multi=True)
 
 
 def update_tree(collection): 
