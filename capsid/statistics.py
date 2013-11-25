@@ -205,6 +205,46 @@ def build_sample_stats(project, sample, genome):
     return stats
 
 
+def build_alignment_stats(project, alignment, genome):
+    '''Build dictionary containing all alignment coverage statistiscs'''
+
+    genome_hits_query = genome_hits('alignmentId', alignment['_id'], genome['gi'])
+    # Total number of hits on the genome
+    genome_hit_count = genome_hits_query.count()
+
+    # Don't bother continuing if there are no hits
+    if not genome_hit_count:
+        return None
+
+    # Get the coverage of mapped alignments in the genome for that sample
+    genome_coverage_percent = genome_coverage(genome_hits_query, genome)
+
+    gene_hits_query = gene_hits('alignmentId', alignment['_id'], genome['gi'])
+    # Total number of hits on just the genes of the genome
+    gene_hit_count = gene_hits_query.count()
+    # The average/max of the mean coverage on each gene
+    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
+
+    stats = {
+        "accession": genome['accession']
+        ,  "genome": genome['name']
+        ,  "projectLabel": project['label']
+        ,  "project": project['name']
+        ,  "projectId": project['_id']
+        ,  "alignment": alignment['name']
+        ,  "alignmentId": alignment['_id']
+        ,  "genomeHits": genome_hit_count
+        ,  "geneHits": gene_hit_count
+        ,  "genomeCoverage": genome_coverage_percent
+        ,  "geneCoverageAvg": gene_coverage_avg
+        ,  "geneCoverageMax": gene_coverage_max
+        }
+
+    return stats
+
+
+
+
 def project_statistics(project):
     '''Calculate the statistics for a project'''
     logger.debug('Calculating statistics for project: {0}'.format(project['label']))
@@ -227,6 +267,20 @@ def sample_statistics(sample, project):
     #map(insert_stats, filter(None, sample_stats))
     [insert_stats(stat) for stat in sample_stats if stat]
 
+
+
+def alignment_statistics(alignment, project):
+    '''Calculate the statistics for an alignment'''
+    logger.debug('Calculating statistics for alignment: {0}'.format(alignment['name']))
+
+    genomes = db.genome.find({}, timeout=False);
+    alignment_stats = (build_alignment_stats(project, alignment, genome) for genome in genomes)
+
+    #map(insert_stats, filter(None, sample_stats))
+    [insert_stats(stat) for stat in alignment_stats if stat]
+
+
+
 def generate_statistics(project):
     '''Generates the statistics for the project and all samples under it'''
     logger.info('Calculating statistics for project: {0}'.format(project['name']))
@@ -237,12 +291,17 @@ def generate_statistics(project):
     samples = db.sample.find({"projectId": project['_id']})
     logger.info("Found samples: {0}".format(samples))
 
+    alignments = db.alignment.find({"projectId": project['_id']})
+    logger.info("Found alignments: {0}".format(alignments))
+
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
 
     p_statistics = partial(sample_statistics, project=project)
+    a_statistics = partial(alignment_statistics, project=project)
 
     pool.map(p_statistics, samples)
+    pool.map(a_statistics, alignments)
     #map(p_statistics, samples)
 
     project_statistics(project)
