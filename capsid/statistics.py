@@ -154,6 +154,7 @@ def build_project_stats(project, genome):
     stats = {
         "accession": genome['accession']
         ,  "genome": genome['name']
+        ,  "gi": genome["gi"]
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
@@ -163,6 +164,9 @@ def build_project_stats(project, genome):
         ,  "geneCoverageAvg": gene_coverage_avg
         ,  "geneCoverageMax": gene_coverage_max
         }
+
+    if "left" in genome:
+        stats["left"] = genome["left"]
 
     return stats
 
@@ -190,6 +194,7 @@ def build_sample_stats(project, sample, genome):
     stats = {
         "accession": genome['accession']
         ,  "genome": genome['name']
+        ,  "gi": genome["gi"]
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
@@ -201,6 +206,9 @@ def build_sample_stats(project, sample, genome):
         ,  "geneCoverageAvg": gene_coverage_avg
         ,  "geneCoverageMax": gene_coverage_max
         }
+
+    if "left" in genome:
+        stats["left"] = genome["left"]
 
     return stats
 
@@ -228,6 +236,7 @@ def build_alignment_stats(project, alignment, genome):
     stats = {
         "accession": genome['accession']
         ,  "genome": genome['name']
+        ,  "gi": genome["gi"]
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
@@ -241,6 +250,9 @@ def build_alignment_stats(project, alignment, genome):
         ,  "geneCoverageAvg": gene_coverage_avg
         ,  "geneCoverageMax": gene_coverage_max
         }
+
+    if "left" in genome:
+        stats["left"] = genome["left"]
 
     return stats
 
