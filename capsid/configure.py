@@ -44,16 +44,16 @@ def ensure_indexes():
 
     # Feature
     logger.info('Adding Feature Indices')
-    db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
+    db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('start', pymongo.ASCENDING)])
     db.feature.ensure_index('start')
 
     # Mapped
     logger.info('Adding Mapped Indices')
-    db.mapped.ensure_index('refStart')
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('projectId', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('projectId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignmentId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING), sparse=True])
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignmentId', pymongo.ASCENDING), ('refStrand', pymongo.ASCENDING)])
     
     # User
     logger.info('Adding User Index')
