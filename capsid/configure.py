@@ -52,7 +52,7 @@ def ensure_indexes():
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('projectId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignmentId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING), sparse=True])
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignmentId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
     
     # User
@@ -69,8 +69,8 @@ def ensure_indexes():
 
     #statistics
     logger.info('Adding Statistics Index')
-    db.statistics.ensure_index('sampleId')
-    db.statistics.ensure_index('genome')
+    db.statistics.ensure_index('ownerId')
+    db.statistics.ensure_index('gi')
 
     # GridFS
     #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)

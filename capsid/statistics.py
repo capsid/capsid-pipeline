@@ -158,6 +158,8 @@ def build_project_stats(project, genome):
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
+        ,  "ownerType": "project"
+        ,  "ownerId": project['_id']
         ,  "genomeHits": genome_hit_count
         ,  "geneHits": gene_hit_count
         ,  "genomeCoverage": genome_coverage_percent
@@ -198,6 +200,8 @@ def build_sample_stats(project, sample, genome):
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
+        ,  "ownerType": "sample"
+        ,  "ownerId": sample['_id']
         ,  "sample": sample['name']
         ,  "sampleId": sample['_id']
         ,  "genomeHits": genome_hit_count
@@ -240,6 +244,8 @@ def build_alignment_stats(project, alignment, genome):
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
+        ,  "ownerType": "alignment"
+        ,  "ownerId": alignment['_id']
         ,  "alignment": alignment['name']
         ,  "sample": alignment['sample']
         ,  "sampleId": alignment['sampleId']
