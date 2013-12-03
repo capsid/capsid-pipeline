@@ -12,6 +12,7 @@ from __future__ import division
 from collections import namedtuple
 from functools import partial
 import multiprocessing
+import re
 
 from bx.intervals.intersection import Intersecter, Interval
 
@@ -127,10 +128,10 @@ def genome_hits(col, value, genome):
     return db.mapped.find({col: value, "genome": genome},
                           {"_id":0, "refStart":1, "refEnd":1})
 
-def build_project_stats(project, genome):
-    '''Build dictionary containing all project converage statistiscs'''
 
-    genome_hits_query = genome_hits('projectId', project['_id'], genome['gi'])
+def get_common_stats(project, genome_hits_query, gene_hits_query, genome):
+    '''Build dictionary containing common coverage statistiscs'''
+
     # Total number of hits on the genome
     genome_hit_count = genome_hits_query.count()
 
@@ -141,15 +142,11 @@ def build_project_stats(project, genome):
     # Get the coverage of mapped alignments in the genome for that sample
     genome_coverage_percent = genome_coverage(genome_hits_query, genome)
 
-    gene_hits_query = gene_hits('projectId', project['_id'], genome['gi'])
     # Total number of hits on just the genes of the genome
     gene_hit_count = gene_hits_query.count()
-    # The average/max of the mean coverage on each gene
-    gene_coverage_avg, placeholder = gene_coverage(gene_hits_query, genome)
 
-    # Replaces the calculated gene_coverage_max from above with the max coverage of all samples
-    sample_coverage = db.statistics.find({'projectId': project['_id'], 'accession': genome['accession'], 'sampleId': {'$exists': 1}}, {'_id':0, 'geneCoverageMax':1})
-    gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
+    # The average/max of the mean coverage on each gene
+    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
 
     stats = {
         "accession": genome['accession']
@@ -158,111 +155,93 @@ def build_project_stats(project, genome):
         ,  "projectLabel": project['label']
         ,  "project": project['name']
         ,  "projectId": project['_id']
-        ,  "ownerType": "project"
-        ,  "ownerId": project['_id']
         ,  "genomeHits": genome_hit_count
         ,  "geneHits": gene_hit_count
         ,  "genomeCoverage": genome_coverage_percent
         ,  "geneCoverageAvg": gene_coverage_avg
         ,  "geneCoverageMax": gene_coverage_max
+        ,  "tags": []
         }
 
     if "left" in genome:
         stats["left"] = genome["left"]
 
     return stats
+
+
+def filter_stats(stats):
+    '''
+    Adds filtering tags to the statistics object. These are in a filters array element,
+    which can be used in indexes for performance
+    '''
+
+    logger.info('Calculating filter: {0}'.format(stats))
+    phagePattern = re.compile('phage', re.IGNORECASE)
+
+    logger.info('Calculating filter 1: {0}'.format(stats))
+    if stats["geneCoverageMax"] < 0.5:
+        stats["tags"].append("lowMaxCover")
+    logger.info('Calculating filter 2: {0}'.format(stats))
+    if phagePattern.match(stats["genome"]):
+        stats["tags"].append("phage")
+
+    return stats
+
+
+def build_project_stats(project, genome):
+    '''Build dictionary containing all project converage statistiscs'''
+
+    genome_hits_query = genome_hits('projectId', project['_id'], genome['gi'])
+    gene_hits_query = gene_hits('projectId', project['_id'], genome['gi'])
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    if not stats:
+        return None
+
+    # Replaces the calculated gene_coverage_max from above with the max coverage of all samples
+    sample_coverage = db.statistics.find({'projectId': project['_id'], 'accession': genome['accession'], 'sampleId': {'$exists': 1}}, {'_id':0, 'geneCoverageMax':1})
+    gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
+
+    stats["ownerType"] = "project"
+    stats["ownerId"] = project['_id']
+    stats["geneCoverageMax"] = gene_coverage_max
+    return filter_stats(stats)
 
 
 def build_sample_stats(project, sample, genome):
     '''Build dictionary containing all sample converage statistiscs'''
 
     genome_hits_query = genome_hits('sampleId', sample['_id'], genome['gi'])
-    # Total number of hits on the genome
-    genome_hit_count = genome_hits_query.count()
+    gene_hits_query = gene_hits('sampleId', sample['_id'], genome['gi'])
 
-    # Don't bother continuing if there are no hits
-    if not genome_hit_count:
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    if not stats:
         return None
 
-    # Get the coverage of mapped alignments in the genome for that sample
-    genome_coverage_percent = genome_coverage(genome_hits_query, genome)
-
-    gene_hits_query = gene_hits('sampleId', sample['_id'], genome['gi'])
-    # Total number of hits on just the genes of the genome
-    gene_hit_count = gene_hits_query.count()
-    # The average/max of the mean coverage on each gene
-    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
-
-    stats = {
-        "accession": genome['accession']
-        ,  "genome": genome['name']
-        ,  "gi": genome["gi"]
-        ,  "projectLabel": project['label']
-        ,  "project": project['name']
-        ,  "projectId": project['_id']
-        ,  "ownerType": "sample"
-        ,  "ownerId": sample['_id']
-        ,  "sample": sample['name']
-        ,  "sampleId": sample['_id']
-        ,  "genomeHits": genome_hit_count
-        ,  "geneHits": gene_hit_count
-        ,  "genomeCoverage": genome_coverage_percent
-        ,  "geneCoverageAvg": gene_coverage_avg
-        ,  "geneCoverageMax": gene_coverage_max
-        }
-
-    if "left" in genome:
-        stats["left"] = genome["left"]
-
-    return stats
+    stats["ownerType"] = "sample"
+    stats["ownerId"] = sample['_id']
+    stats["sample"] = sample['name']
+    stats["sampleId"] = sample['_id']
+    return filter_stats(stats)
 
 
 def build_alignment_stats(project, alignment, genome):
     '''Build dictionary containing all alignment coverage statistiscs'''
 
     genome_hits_query = genome_hits('alignmentId', alignment['_id'], genome['gi'])
-    # Total number of hits on the genome
-    genome_hit_count = genome_hits_query.count()
+    gene_hits_query = gene_hits('alignmentId', alignment['_id'], genome['gi'])
 
-    # Don't bother continuing if there are no hits
-    if not genome_hit_count:
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    if not stats:
         return None
 
-    # Get the coverage of mapped alignments in the genome for that sample
-    genome_coverage_percent = genome_coverage(genome_hits_query, genome)
-
-    gene_hits_query = gene_hits('alignmentId', alignment['_id'], genome['gi'])
-    # Total number of hits on just the genes of the genome
-    gene_hit_count = gene_hits_query.count()
-    # The average/max of the mean coverage on each gene
-    gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
-
-    stats = {
-        "accession": genome['accession']
-        ,  "genome": genome['name']
-        ,  "gi": genome["gi"]
-        ,  "projectLabel": project['label']
-        ,  "project": project['name']
-        ,  "projectId": project['_id']
-        ,  "ownerType": "alignment"
-        ,  "ownerId": alignment['_id']
-        ,  "alignment": alignment['name']
-        ,  "sample": alignment['sample']
-        ,  "sampleId": alignment['sampleId']
-        ,  "alignmentId": alignment['_id']
-        ,  "genomeHits": genome_hit_count
-        ,  "geneHits": gene_hit_count
-        ,  "genomeCoverage": genome_coverage_percent
-        ,  "geneCoverageAvg": gene_coverage_avg
-        ,  "geneCoverageMax": gene_coverage_max
-        }
-
-    if "left" in genome:
-        stats["left"] = genome["left"]
-
-    return stats
-
-
+    stats["ownerType"] = "alignment"
+    stats["ownerId"] = alignment['_id']
+    stats["sample"] = alignment['sample']
+    stats["sampleId"] = alignment['sampleId']
+    stats["alignment"] = alignment['name']
+    stats["alignmentId"] = alignment['_id']
+    return filter_stats(stats)
 
 
 def project_statistics(project):
