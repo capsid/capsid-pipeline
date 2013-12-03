@@ -175,14 +175,11 @@ def filter_stats(stats):
     which can be used in indexes for performance
     '''
 
-    logger.info('Calculating filter: {0}'.format(stats))
     phagePattern = re.compile('phage', re.IGNORECASE)
 
-    logger.info('Calculating filter 1: {0}'.format(stats))
     if stats["geneCoverageMax"] < 0.5:
         stats["tags"].append("lowMaxCover")
-    logger.info('Calculating filter 2: {0}'.format(stats))
-    if phagePattern.match(stats["genome"]):
+    if phagePattern.search(stats["genome"]):
         stats["tags"].append("phage")
 
     return stats
