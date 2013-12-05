@@ -107,7 +107,7 @@ def create_project_background_model():
 
 def create_role_background_project():
     return {
-        "authority": "ROLE_" + "bg"
+        "authority": "ROLE_" + "background"
         }
 
 
