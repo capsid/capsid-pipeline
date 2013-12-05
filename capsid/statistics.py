@@ -13,6 +13,7 @@ from collections import namedtuple
 from functools import partial
 import multiprocessing
 import re
+import sys
 
 from bx.intervals.intersection import Intersecter, Interval
 
@@ -181,8 +182,21 @@ def filter_stats(stats):
         stats["tags"].append("lowMaxCover")
     if phagePattern.search(stats["genome"]):
         stats["tags"].append("phage")
+    if filter_bg:
+         stats_bg = next(db.statistics.find({"projectLabel" : "background", "gi" : stats['gi'], "sample" : bg_model,  "ownerType" : "sample"}), None)
+         if stats_bg["geneCoverageAvg"]:
+              if stats["geneCoverageAvg"] <= stats_bg["geneCoverageAvg"]:
+                 stats["tags"].append("lowgeneCoverageAvg")
+         else:
+             stats["tags"].append("lowgeneCoverageAvg")
+         if stats_bg["genomeCoverage"]:
+              if stats["genomeCoverage"] <= stats_bg["genomeCoverage"]:     
+                 stats["tags"].append("lowgenomeCoverage")
+         else:
+             stats["tags"].append("lowgenomeCoverage")
 
     return stats
+
 
 
 def build_project_stats(project, genome):
@@ -299,7 +313,6 @@ def generate_statistics(project):
     pool.map(p_statistics, samples)
     pool.map(a_statistics, alignments)
     #map(p_statistics, samples)
-
     project_statistics(project)
 
 
@@ -312,14 +325,65 @@ def update_sample_count(genome):
 def main(args):
     '''Calculate Genome Coverage Statistics'''
 
-    global db, logger
+    global db, logger, filter_bg, bg_model
 
     logger = args.logging.getLogger(__name__)
     db = connect(args)
 
-    projects = list(db.project.find({'label': {'$in': args.projects}}))
-    logger.info("Found projects: {0}".format(projects))
+    # gets stats for background models 
+    if args.bg and len(args.projects) == 1 and args.projects[0] == 'background':
+         filter_bg = False
+         logger.info('Calculating statistics for background models')
+         projects = list(db.project.find({'label': {'$in': args.projects}}))
+         logger.info("Found projects: {0}".format(projects))
+    elif args.bg and (len(args.projects) > 1 or args.projects[0] != 'background'):
+         logger.error('Error: the -bg option can only be used with the project "background" (see usage info). Exiting from statistics')
+         sys.exit(1)
 
+
+    # get stats for the project without using background models 
+    if args.bgm is False and args.bg is False:
+         #check that background is not one of the projects 
+         if 'background' in args.projects:
+             logger.error('Error: Project "background" need to be specified with -bg option. Exiting from statistics')
+             sys.exit(1)
+         else:
+             filter_bg = False
+             projects = list(db.project.find({'label': {'$in': args.projects}}))
+             if len(projects) == 0: 
+                 logger.error('Error: No such project. Exiting from statistics')
+                 sys.exit(1)
+             else:
+                 logger.info("Found projects: {0}".format(projects))    
+
+
+    # get stats for the project, filter results with a bg model 
+    if args.bgm:
+        if 'background' in args.projects:
+             logger.error('Error: Project "background" can only be specified with -bg option. Exiting from statistics')
+             sys.exit(1)
+        else:
+            # check that the bg model exists 
+            if list(db.sample.find({'name': str(args.bgm) , "projectLabel" : "background"})):
+                 # check that stats for the background project exist 
+                 try: 
+                     list(db.statistics.find_one({'sample': str(args.bgm), "projectLabel" : "background"}))
+                     projects = list(db.project.find({'label': {'$in': args.projects}}))
+                     if len(projects) == 0: 
+                         logger.error('Error: No such project. Exiting from statistics')
+                         sys.exit(1)
+                     else:
+                         logger.info("Found projects: {0}".format(projects))    
+                         bg_model = str(args.bgm)
+                         filter_bg = True
+                 except TypeError:
+                     logger.error('Error: Stats for background model (sample)' + str(args.bgm) + ' do not exist in project "background"')
+                     sys.exit(1)  
+            else:
+                logger.error('Error: Backgound model (sample): ' + str(args.bgm) + ' does not exist in project "background"')
+                sys.exit(1)  
+
+    #projects = list(db.project.find({'label': {'$in': args.projects}}))                               
     map(generate_statistics, projects)
 
     # Updating Genomes with the number of sample hits
