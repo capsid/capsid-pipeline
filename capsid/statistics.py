@@ -184,17 +184,15 @@ def filter_stats(stats):
         stats["tags"].append("phage")
     if filter_bg:
          stats_bg = next(db.statistics.find({"projectLabel" : "background", "gi" : stats['gi'], "sample" : bg_model,  "ownerType" : "sample"}), None)
-         if stats_bg["geneCoverageAvg"]:
-              if stats["geneCoverageAvg"] <= stats_bg["geneCoverageAvg"]:
-                 stats["tags"].append("lowgeneCoverageAvg")
-         else:
-             stats["tags"].append("lowgeneCoverageAvg")
-         if stats_bg["genomeCoverage"]:
-              if stats["genomeCoverage"] <= stats_bg["genomeCoverage"]:     
-                 stats["tags"].append("lowgenomeCoverage")
-         else:
-             stats["tags"].append("lowgenomeCoverage")
-
+         if stats_bg is not None:
+             if stats_bg["geneCoverageAvg"]:
+                 if stats["geneCoverageAvg"] <= stats_bg["geneCoverageAvg"]:
+                     stats["tags"].append("lowgeneCoverageAvg")
+             if stats_bg["genomeCoverage"]:
+                 if stats["genomeCoverage"] <= stats_bg["genomeCoverage"]:     
+                     stats["tags"].append("lowgenomeCoverage")
+         else: 
+               pass      
     return stats
 
 
