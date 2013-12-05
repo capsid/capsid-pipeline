@@ -15,8 +15,10 @@ import getpass
 import os
 import base64
 import ConfigParser
+import sys
 
 from database import *
+from pymongo.errors import DuplicateKeyError
 
 db, logger = None, None
 
@@ -75,6 +77,7 @@ def ensure_indexes():
     # GridFS
     #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
 
+
 def genome_samples():
     '''Calculate how many samples hit the genomes'''
 
@@ -90,6 +93,22 @@ function() {
   });
 }
 """
+
+def create_project_background_model():
+        return {
+        "description" : "Project for background models",
+        "label" : "background",
+        "name" : "background",
+        "roles" : ["ROLE_" + "background"],
+        "version" : 0,
+        "wikiLink" : "background"
+        }
+
+
+def create_role_background_project():
+    return {
+        "authority": "ROLE_" + "bg"
+        }
 
 
 def setup_config(args):
@@ -111,6 +130,7 @@ def setup_config(args):
         config.write(configfile)
 
 
+
 def main(args):
     '''Setup MongoDB for use by CaPSID'''
 
@@ -129,6 +149,15 @@ def main(args):
     ensure_indexes()
     #logger.info('Adding JavaScript Functions...')
     #genome_samples()
+    logger.info('Seeting a project for background models')
+    try:
+        db.project.insert(create_project_background_model(), safe=True)
+        logger.debug("project for background models inserted successfully")
+        db.role.insert(create_role_background_project(), safe=True)
+        logger.debug("role for background models inserted successfully")
+        logger.info("Project for background models added successfully to the database")
+    except DuplicateKeyError:    
+        logger.error("Project for background models already exists")
 
     logger.info('Done!')
 
