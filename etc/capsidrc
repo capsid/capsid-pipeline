@@ -1,0 +1,28 @@
+#!/bin/bash
+export READSCAN_PATHOGEN_REF=
+export READSCAN_HOME=
+export READSCAN_TAXON=
+
+if [ "$OS" = "Linux" ]; then
+if [ "$BIT" = "64" ]; then
+FILE="smalt_x86_64"
+else
+FILE="smalt_i686"
+fi
+fi
+
+if [ "$OS" = "Darwin" ]; then
+if [ "$BIT" = "64" ]; then
+FILE="smalt_MacOSX_i686_64bit"
+else
+FILE="smalt_MacOSX_i386"
+fi
+fi
+
+# if readscan is not your path export it now
+echo $PATH | grep 'readscan/src'
+if ! [ $? -eq 0 ]; then
+export PATH=$READSCAN_HOME/src:$PATH
+export PERL5LIB=$READSCAN_HOME/src:$PERL5LIB
+fi
+

@@ -19,6 +19,7 @@
 from pymongo.errors import DuplicateKeyError
 
 from database import *
+import sys
 
 db, logger = None, None
 
@@ -50,9 +51,10 @@ def main(args):
         logger.debug("project {0} inserted successfully".format(args.project))
         db.role.insert(create_role(args), safe=True)
         logger.debug("role {0} inserted successfully".format(args.project))
-        logger.info("Project {0} added successfully to the Database".format(args.project))
+        logger.info("Project {0} added successfully to the database".format(args.project))
     except DuplicateKeyError:
-        logger.info("Project {0} already exists".format(args.project))
+        logger.error("Project {0} already exists".format(args.project))
+        sys.exit(1)
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid project -h\n\tor\n\t$ /path/to/capsid/bin/capsid project -h'

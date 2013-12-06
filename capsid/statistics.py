@@ -12,6 +12,8 @@ from __future__ import division
 from collections import namedtuple
 from functools import partial
 import multiprocessing
+import re
+import sys
 
 from bx.intervals.intersection import Intersecter, Interval
 
@@ -127,10 +129,10 @@ def genome_hits(col, value, genome):
     return db.mapped.find({col: value, "genome": genome},
                           {"_id":0, "refStart":1, "refEnd":1})
 
-def build_project_stats(project, genome):
-    '''Build dictionary containing all project converage statistiscs'''
 
-    genome_hits_query = genome_hits('project', project['label'], genome['gi'])
+def get_common_stats(project, genome_hits_query, gene_hits_query, genome):
+    '''Build dictionary containing common coverage statistiscs'''
+
     # Total number of hits on the genome
     genome_hit_count = genome_hits_query.count()
 
@@ -141,65 +143,114 @@ def build_project_stats(project, genome):
     # Get the coverage of mapped alignments in the genome for that sample
     genome_coverage_percent = genome_coverage(genome_hits_query, genome)
 
-    gene_hits_query = gene_hits('project', project['label'], genome['gi'])
     # Total number of hits on just the genes of the genome
     gene_hit_count = gene_hits_query.count()
-    # The average/max of the mean coverage on each gene
-    gene_coverage_avg, placeholder = gene_coverage(gene_hits_query, genome)
 
-    # Replaces the calculated gene_coverage_max from above with the max coverage of all samples
-    sample_coverage = db.statistics.find({'label': project['label'], 'accession': genome['accession'], 'sample': {'$exists': 1}}, {'_id':0, 'geneCoverageMax':1})
-    gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
-
-    stats = {
-        "accession": genome['accession']
-        ,  "genome": genome['name']
-        ,  "label": project['label']
-        ,  "project": project['name']
-        ,  "genomeHits": genome_hit_count
-        ,  "geneHits": gene_hit_count
-        ,  "genomeCoverage": genome_coverage_percent
-        ,  "geneCoverageAvg": gene_coverage_avg
-        ,  "geneCoverageMax": gene_coverage_max
-        }
-
-    return stats
-
-
-def build_sample_stats(project, sample, genome):
-    '''Build dictionary containing all sample converage statistiscs'''
-
-    genome_hits_query = genome_hits('sample', sample['name'], genome['gi'])
-    # Total number of hits on the genome
-    genome_hit_count = genome_hits_query.count()
-
-    # Don't bother continuing if there are no hits
-    if not genome_hit_count:
-        return None
-
-    # Get the coverage of mapped alignments in the genome for that sample
-    genome_coverage_percent = genome_coverage(genome_hits_query, genome)
-
-    gene_hits_query = gene_hits('sample', sample['name'], genome['gi'])
-    # Total number of hits on just the genes of the genome
-    gene_hit_count = gene_hits_query.count()
     # The average/max of the mean coverage on each gene
     gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
 
     stats = {
         "accession": genome['accession']
         ,  "genome": genome['name']
-        ,  "label": project['label']
+        ,  "gi": genome["gi"]
+        ,  "projectLabel": project['label']
         ,  "project": project['name']
-        ,  "sample": sample['name']
+        ,  "projectId": project['_id']
         ,  "genomeHits": genome_hit_count
         ,  "geneHits": gene_hit_count
         ,  "genomeCoverage": genome_coverage_percent
         ,  "geneCoverageAvg": gene_coverage_avg
         ,  "geneCoverageMax": gene_coverage_max
+        ,  "tags": []
         }
 
+    if "left" in genome:
+        stats["left"] = genome["left"]
+
     return stats
+
+
+def filter_stats(stats):
+    '''
+    Adds filtering tags to the statistics object. These are in a filters array element,
+    which can be used in indexes for performance
+    '''
+
+    phagePattern = re.compile('phage', re.IGNORECASE)
+
+    if stats["geneCoverageMax"] < 0.5:
+        stats["tags"].append("lowMaxCover")
+    if phagePattern.search(stats["genome"]):
+        stats["tags"].append("phage")
+    if filter_bg:
+         stats_bg = next(db.statistics.find({"projectLabel" : "background", "gi" : stats['gi'], "sample" : bg_model,  "ownerType" : "sample"}), None)
+         if stats_bg is not None:
+             if stats_bg["geneCoverageAvg"]:
+                 if stats["geneCoverageAvg"] <= stats_bg["geneCoverageAvg"]:
+                     stats["tags"].append("lowgeneCoverageAvg")
+             if stats_bg["genomeCoverage"]:
+                 if stats["genomeCoverage"] <= stats_bg["genomeCoverage"]:     
+                     stats["tags"].append("lowgenomeCoverage")
+         else: 
+               pass      
+    return stats
+
+
+
+def build_project_stats(project, genome):
+    '''Build dictionary containing all project converage statistiscs'''
+
+    genome_hits_query = genome_hits('projectId', project['_id'], genome['gi'])
+    gene_hits_query = gene_hits('projectId', project['_id'], genome['gi'])
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    if not stats:
+        return None
+
+    # Replaces the calculated gene_coverage_max from above with the max coverage of all samples
+    sample_coverage = db.statistics.find({'projectId': project['_id'], 'accession': genome['accession'], 'sampleId': {'$exists': 1}}, {'_id':0, 'geneCoverageMax':1})
+    gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
+
+    stats["ownerType"] = "project"
+    stats["ownerId"] = project['_id']
+    stats["geneCoverageMax"] = gene_coverage_max
+    return filter_stats(stats)
+
+
+def build_sample_stats(project, sample, genome):
+    '''Build dictionary containing all sample converage statistiscs'''
+
+    genome_hits_query = genome_hits('sampleId', sample['_id'], genome['gi'])
+    gene_hits_query = gene_hits('sampleId', sample['_id'], genome['gi'])
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    if not stats:
+        return None
+
+    stats["ownerType"] = "sample"
+    stats["ownerId"] = sample['_id']
+    stats["sample"] = sample['name']
+    stats["sampleId"] = sample['_id']
+    return filter_stats(stats)
+
+
+def build_alignment_stats(project, alignment, genome):
+    '''Build dictionary containing all alignment coverage statistiscs'''
+
+    genome_hits_query = genome_hits('alignmentId', alignment['_id'], genome['gi'])
+    gene_hits_query = gene_hits('alignmentId', alignment['_id'], genome['gi'])
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    if not stats:
+        return None
+
+    stats["ownerType"] = "alignment"
+    stats["ownerId"] = alignment['_id']
+    stats["sample"] = alignment['sample']
+    stats["sampleId"] = alignment['sampleId']
+    stats["alignment"] = alignment['name']
+    stats["alignmentId"] = alignment['_id']
+    return filter_stats(stats)
 
 
 def project_statistics(project):
@@ -224,42 +275,113 @@ def sample_statistics(sample, project):
     #map(insert_stats, filter(None, sample_stats))
     [insert_stats(stat) for stat in sample_stats if stat]
 
+
+
+def alignment_statistics(alignment, project):
+    '''Calculate the statistics for an alignment'''
+    logger.debug('Calculating statistics for alignment: {0}'.format(alignment['name']))
+
+    genomes = db.genome.find({}, timeout=False);
+    alignment_stats = (build_alignment_stats(project, alignment, genome) for genome in genomes)
+
+    #map(insert_stats, filter(None, sample_stats))
+    [insert_stats(stat) for stat in alignment_stats if stat]
+
+
+
 def generate_statistics(project):
     '''Generates the statistics for the project and all samples under it'''
     logger.info('Calculating statistics for project: {0}'.format(project['name']))
 
     logger.debug('Remove old statistics for the project: {0}'.format(project['label']))
-    db.statistics.remove({'label': project['label']})
+    db.statistics.remove({'projectId': project['_id']})
 
-    samples = db.sample.find({"project": project['label']})
+    samples = db.sample.find({"projectId": project['_id']})
+    logger.info("Found samples: {0}".format(samples))
+
+    alignments = db.alignment.find({"projectId": project['_id']})
+    logger.info("Found alignments: {0}".format(alignments))
 
     pool_size = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(pool_size)
 
     p_statistics = partial(sample_statistics, project=project)
+    a_statistics = partial(alignment_statistics, project=project)
 
     pool.map(p_statistics, samples)
+    pool.map(a_statistics, alignments)
     #map(p_statistics, samples)
-
     project_statistics(project)
 
 
 def update_sample_count(genome):
     ''' '''
-    s = db.mapped.find({'genome': genome['gi']}).distinct('sample')
+    s = db.mapped.find({'genome': genome['gi']}).distinct('sampleId')
     db.genome.update({'gi': genome['gi']}, {'$set': {'samples': s, 'sampleCount': len(s)}})
 
 
 def main(args):
     '''Calculate Genome Coverage Statistics'''
 
-    global db, logger
+    global db, logger, filter_bg, bg_model
 
     logger = args.logging.getLogger(__name__)
     db = connect(args)
 
-    projects = list(db.project.find({'label': {'$in': args.projects}}))
+    # gets stats for background models 
+    if args.bg and len(args.projects) == 1 and args.projects[0] == 'background':
+         filter_bg = False
+         logger.info('Calculating statistics for background models')
+         projects = list(db.project.find({'label': {'$in': args.projects}}))
+         logger.info("Found projects: {0}".format(projects))
+    elif args.bg and (len(args.projects) > 1 or args.projects[0] != 'background'):
+         logger.error('Error: the -bg option can only be used with the project "background" (see usage info). Exiting from statistics')
+         sys.exit(1)
 
+
+    # get stats for the project without using background models 
+    if args.bgm is False and args.bg is False:
+         #check that background is not one of the projects 
+         if 'background' in args.projects:
+             logger.error('Error: Project "background" need to be specified with -bg option. Exiting from statistics')
+             sys.exit(1)
+         else:
+             filter_bg = False
+             projects = list(db.project.find({'label': {'$in': args.projects}}))
+             if len(projects) == 0: 
+                 logger.error('Error: No such project. Exiting from statistics')
+                 sys.exit(1)
+             else:
+                 logger.info("Found projects: {0}".format(projects))    
+
+
+    # get stats for the project, filter results with a bg model 
+    if args.bgm:
+        if 'background' in args.projects:
+             logger.error('Error: Project "background" can only be specified with -bg option. Exiting from statistics')
+             sys.exit(1)
+        else:
+            # check that the bg model exists 
+            if list(db.sample.find({'name': str(args.bgm) , "projectLabel" : "background"})):
+                 # check that stats for the background project exist 
+                 try: 
+                     list(db.statistics.find_one({'sample': str(args.bgm), "projectLabel" : "background"}))
+                     projects = list(db.project.find({'label': {'$in': args.projects}}))
+                     if len(projects) == 0: 
+                         logger.error('Error: No such project. Exiting from statistics')
+                         sys.exit(1)
+                     else:
+                         logger.info("Found projects: {0}".format(projects))    
+                         bg_model = str(args.bgm)
+                         filter_bg = True
+                 except TypeError:
+                     logger.error('Error: Stats for background model (sample)' + str(args.bgm) + ' do not exist in project "background"')
+                     sys.exit(1)  
+            else:
+                logger.error('Error: Backgound model (sample): ' + str(args.bgm) + ' does not exist in project "background"')
+                sys.exit(1)  
+
+    #projects = list(db.project.find({'label': {'$in': args.projects}}))                               
     map(generate_statistics, projects)
 
     # Updating Genomes with the number of sample hits

@@ -20,24 +20,28 @@ from pymongo.errors import DuplicateKeyError
 
 from database import *
 import project
+import sys
 
 db, logger = None, None
 
 
 def check_project(args):
-    if (not db.project.find_one({"label": args.project})):
-        args.pdesc = None
-        args.link = None
-        args.pname = None
-        project.main(args)
+    project = db.project.find_one({"label": args.project})
+
+    if (not project):
+        logger.error("Project {0} does not exists".format(args.project))
+        sys.exit(1)
+    else:
+        return project
 
 
-def create_sample(args):
+def create_sample(project, args):
     return {
         "cancer" : args.cancer,
         "description" : args.sdesc,
         "name" : args.sample,
-        "project" : args.project,
+        "projectLabel" : args.project,
+        "projectId" : project["_id"],
         "role" : args.role,
         "source" : args.source,
         "version" : 0
@@ -52,14 +56,16 @@ def main(args):
     logger = args.logging.getLogger(__name__)
     db = connect(args)
     
-    check_project(args)
+    project = check_project(args)
     
     try:
-        db.sample.insert(create_sample(args), safe=True)
+        db.sample.insert(create_sample(project, args), safe=True)
         logger.debug("sample {0} inserted successfully".format(args.sample))
         logger.info("Sample {0} has been added to {1}".format(args.sample, args.project))
-    except DuplicateKeyError:
-        logger.info("Sample {0} already exists".format(args.sample))
+    except DuplicateKeyError as inst:
+        logger.error("Sample {0} already exists in project: {1}".format(args.sample, project["label"]))
+        sys.exit(1)
+
 
 if __name__ == '__main__':
     print 'This program should be run as part of the capsid package:\n\t$ capsid sample -h\n\tor\n\t$ /path/to/capsid/bin/capsid sample -h'

@@ -15,6 +15,9 @@ from itertools import count, ifilter, imap
 from collections import namedtuple
 from functools import partial
 import re
+import os, sys
+import subprocess
+import csv
 
 import pysam
 from bx.intervals.intersection import Intersecter, Interval
@@ -36,18 +39,16 @@ intersecters = {}
 genomes = {}
 counter = Counter(count(), count(), count(), count())
 regex = re.compile("gi\|(.+?)($|\|)|ref\|(.+?)(\.|$|\|)")
+temp = None
+
 
 def check_align(args):
-    aln = db.alignment.find_one({"name": args.align})
-    if not aln and args.sample and args.project:
-        logger.debug("Alignment {0} not found in Database.".format(args.align))
-        args.aligner = None
-        args.type = None
-        args.platform = None
-        args.infile = None
-        args.outfile = None
-        alignment.main(args)
-        aln = db.alignment.find_one({"name": args.align})
+
+    finder = {"name": args.align, "sample": args.sample, "projectLabel": args.project}
+    aln = db.alignment.find_one(finder)
+    if not aln:
+        logger.error("Alignment {0} not found in {1}/{2}.".format(args.align, args.project, args.sample))
+        sys.exit(1)
 
     return aln
 
@@ -55,10 +56,11 @@ def get_meta(args):
     """Gather the meta data for the alignment from the database"""
 
     aln = check_align(args)
-    try:
-        sample = db.sample.find_one({"name": aln['sample']})
-    except TypeError:
-        exit(logger.error("Alignment {0} not found in Database. --project and --sample need to be passed to auto-create".format(args.align)))
+    sample = db.sample.find_one({"_id": aln['sampleId']})
+
+    if not sample:
+        logger.error("Alignment {0} not found in database. --project and --sample need to be passed to auto-create".format(args.align))
+        exit(1)
 
     logger.debug('Subtraction for alignment: {0}'.format(args.align))
 
@@ -68,16 +70,92 @@ def get_meta(args):
 def update_isref(readId):
     ''' '''
 
-    db.mapped.update({'readId': readId, 'alignment':meta.alignment['name']},
+    db.mapped.update({'readId': readId, 'alignmentId':meta.alignment['_id']},
                      {'$set': {'isRef': 1}}, False, False, False, True)
 
 
 def extract_unmapped(align, fastq):
     """Output unmapped alignments to Fastq file"""
-    
     fastq.write("@{0:>s}\n{1:>s}\n+\n{2:>s}\n".format(str(align.qname), str(align.query), str(align.qqual)))
 
 
+# new 
+def tuple_to_CIG(readcig):
+    #cig_ops=['M','I','D','N','S','H','P','=','X']
+    cig_ops=['M','I','D','N','S','H','P','M','X']
+    cig_string=str()
+    for tple in readcig:
+        cig_string = cig_string + str(tple[1]) + str(cig_ops[tple[0]])
+    return cig_string    
+
+
+# new 
+def extract_mapped_sam(align, genome_sam, sam_file):
+    """Output mapped xeno reads to a sam file"""
+    sam_file.write("{0:>s}\t{1:>s}\t{2:>s}\t{3:>s}\t{4:>s}\t{5:>s}\t{6:>s}\t{7:>s}\t{8:>s}\t{9:>s}\t{10:>s}\t{11:>s}\n".format(str(align.qname),str(align.flag),genome_sam,str(align.pos + 1),str(align.mapq),str(tuple_to_CIG(align.cigar)),'*','0','0',str(align.query),'*','AS:i:' + str(align.opt('AS'))))
+
+# new 
+def extract_hg_readIds(align,hgids):
+    """Output mapped hg readId to a file"""
+    hgids.write("{0:>s}\n".format(align.qname))
+
+def get_readscan_data(readscan_file):
+    row_number = 0
+    genome_identifier = re.compile("gi:(\d+)")
+    with open(readscan_file, 'rU') as f:
+        readscan_reader = csv.DictReader(f, delimiter='\t', quotechar='|')
+        for row in readscan_reader:
+            row['row'] = row_number
+            row['index'] = int(row['index'])
+            row['score'] = float(row['score'])
+            row_number = row_number + 1
+            if row.has_key(None):
+                del row[None]
+            match = genome_identifier.match(row['id'])
+            if match:
+                row['genome'] = int(match.group(1))
+            yield row
+
+# new
+def get_only_xeno_reads(pathogen, human, args):
+    """Obtain reads in sam format that only map to xeno"""    
+    #print args.xeno.rsplit('/',1)[0]
+    logger.info("Temporary directory: {0}".format(temp))
+    logger.info("Sorting {0}".format(temp + pathogen))
+
+    pathogen_input_file = temp + pathogen
+    pathogen_sorted_file = temp + pathogen + '.sorted'
+    human_input_file = temp + human
+    human_sorted_file = temp + human + '.sorted'
+
+    if subprocess.call(['sort', pathogen_input_file, '-t\t', '-d', '--key=1,1', '-T', temp, '-o', pathogen_sorted_file]) != 0:
+        logger.error("Error sorting {0}".format(pathogen_input_file))
+        sys.exit(1)
+    logger.info("Sorting {0}".format(temp + human))
+    if subprocess.call(['sort', human_input_file, '-t\t', '-d', '--key=1,1', '-T', temp, '-o', human_sorted_file]) != 0:
+        logger.error("Error sorting {0}".format(human_input_file))
+        sys.exit(1)
+        
+    os.remove(pathogen_input_file)
+    os.remove(human_input_file)
+
+    xeno_file = os.path.abspath(args.xeno)
+    xeno_directory = os.path.dirname(xeno_file)
+
+    gra = __file__.rsplit('/',1)[0] + '/gra.sh'
+    logger.info("Output directory: {0}".format(xeno_directory))
+    if subprocess.call([gra, pathogen_sorted_file, human_sorted_file, xeno_directory]) != 0:
+        logger.error("Failed to calculate genome relative abundance successfully")
+        sys.exit(1)
+
+    readscan_file = xeno_directory + '/pathogen.gra.txt'
+    result = list(get_readscan_data(readscan_file))
+
+    selector = {"_id" : meta.alignment['_id']}
+    updater = {"$set" : {"gra" : result}}
+    db.alignment.update(selector, updater)
+    
+ 
 def maps_gene(mapped):
     """Determine if the mapped alignment falls within a gene."""
     global intersecters
@@ -147,9 +225,12 @@ def build_mapped(align, genome, reference):
        , "mismatch": mismatch
        , "pairEnd": 1 if align.is_proper_pair else 0
        , "genome": int(genome)
-       , "project": meta.sample['project']
+       , "projectLabel": meta.sample['projectLabel']
+       , "projectId": meta.sample['projectId']
        , "sample": meta.sample['name']
+       , "sampleId": meta.sample['_id']
        , "alignment": meta.alignment['name']
+       , "alignmentId": meta.alignment['_id']
        , "platform": meta.alignment['platform']
        , "sequencingType": meta.alignment['type']
        , "sequence": align.query
@@ -173,14 +254,13 @@ def build_mapped(align, genome, reference):
 
 def get_genome(gid):
     '''Query database for genome using both gi and accession'''
-
     if gid['gi']:
         genome = int(gid['gi'])
     elif gid['accession']:
         try: genome = db.genome.find_one({'accession':gid['accession']},
                                          {'_id':0, 'gi':1})['gi']
         except TypeError: genome = None
-
+    
     return genome
 
 
@@ -218,18 +298,18 @@ def determine_genome(genome_header):
         genome = filter(None, [get_genome(gid) for gid in gids]).pop()
     except IndexError:
         genome = None
-
+    
     return genome
 
 
 def insert_mapped(mapped, process):
     '''Insert mapped alignments into Database'''
-
     # If it maps to a genome save in the database, otherwise
     # just return the intersecting read id
+    # new do not insert into mongo right now
     if mapped['genome'] and process in ['both', 'mapped']:
         db.mapped.insert(mapped)
-
+    
     return mapped['readId']
 
 
@@ -239,17 +319,21 @@ def valid_mapped(align):
     return (not align.is_proper_pair or align.is_proper_pair and align.isize) and not align.is_unmapped
 
 
-def extract_mapped(align, bamfile, reference=False):
+def extract_mapped(align, bamfile, sam_file, reference=False):
     '''Process mapped alignment and return dict'''
     global genomes
 
     if (0 <= align.mapq <= 3 or align.mapq >= mapq) and valid_mapped(align):
+        if gra and sam_file: 
+          genome_sam = str(bamfile.getrname(align.tid))                                                                           
+          extract_mapped_sam(align,genome_sam,sam_file)   
         try:
             genome = genomes[str(bamfile.getrname(align.tid))]
+                                   
         except KeyError:
             genome = determine_genome(bamfile.getrname(align.tid))
             if genome: genomes[str(bamfile.getrname(align.tid))] = genome
-
+        
         # If it doesn't map to a genome in the database, assume it is mapping to
         # a junction and just save as an intersecting readId
         if genome:
@@ -263,11 +347,10 @@ def extract_mapped(align, bamfile, reference=False):
 
 def maps_xeno(align, readids):
     '''Checks if alignment readId matches any in readids set'''
-
     return align.qname in readids
 
 
-def extract_alignment(align, bamfile, readids, fastq):
+def extract_alignment(align, bamfile, readids, fastq, hgids):
     '''Process alignments '''
 
     in_xeno = maps_xeno(align, readids)
@@ -276,7 +359,9 @@ def extract_alignment(align, bamfile, readids, fastq):
         counter.ref_unmapped.next()
         extract_unmapped(align, fastq)
     elif not align.is_unmapped and in_xeno:
-        return extract_mapped(align, bamfile, True)
+        if gra and hgids:
+            extract_hg_readIds(align,hgids)
+        return extract_mapped(align, bamfile, False, True)
 
 
 def parse_ref(args, readids, process):
@@ -292,11 +377,16 @@ def parse_ref(args, readids, process):
 
     fastq = open(meta.alignment['name'] + '.unmapped.fastq', 'w') if process in ['both', 'unmapped'] else None
 
-    return ifilter(None, (extract_alignment(align, bamfile, readids, fastq)
+    if args.gra:
+        hgids = open(temp + meta.alignment['name'] + '.hg.mapped.txt', 'a') if process in ['both', 'mapped'] else None
+        return ifilter(None, (extract_alignment(align, bamfile, readids, fastq, hgids)
                           for align in bamfile.fetch(until_eof=True)))
+    else:
+          return ifilter(None, (extract_alignment(align, bamfile, readids, fastq, hgids=False)
+                          for align in bamfile.fetch(until_eof=True)))
+      
 
-
-def parse_xeno(args):
+def parse_xeno(args,process):
     '''Extract alignments from Xeno BAM file'''
     global genomes
 
@@ -306,8 +396,16 @@ def parse_xeno(args):
     logger.debug('Xeno BAM File: {0}'.format(args.xeno))
 
     bamfile = pysam.Samfile(args.xeno, 'rb')
-    return ifilter(None, (extract_mapped(align, bamfile)
-                          for align in bamfile.fetch()))
+
+    # open the location for the sam file
+    if args.gra:
+        sam_file = open(temp + meta.alignment['name'] + '.vg.mapped.sam', 'a') if process in ['both', 'mapped'] else None
+        return ifilter(None, (extract_mapped(align, bamfile, sam_file)
+                          for align in bamfile.fetch(until_eof=True)))
+    else:
+        return ifilter(None, (extract_mapped(align, bamfile, sam_file=False)
+                          for align in bamfile.fetch(until_eof=True)))
+ 
 
 
 def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
@@ -333,7 +431,7 @@ def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
 
 def main(args):
     ''' '''
-    global db, logger, meta, mapq
+    global db, logger, meta, mapq, temp, gra
     logger = args.logging.getLogger(__name__)
 
     if args.lookup:
@@ -347,10 +445,12 @@ def main(args):
     meta = get_meta(args)
     mapq = int(args.filter)
     process = args.process
+    temp = args.temp
+    gra = args.gra
 
     p_mapped = partial(insert_mapped, process=process)
 
-    xeno_mapped = parse_xeno(args)
+    xeno_mapped = parse_xeno(args,process)
     if process in ['both', 'mapped']:
         logger.info('Inserting mapped alignments from Xeno BAM file...')
     xeno_mapped_readids = set(map(p_mapped, xeno_mapped))
@@ -363,6 +463,10 @@ def main(args):
     else:
         logger.info('Inserting mapped and outputting unmapped from Reference BAM file...')
     intersecting_mapped_readids = set(map(p_mapped, ref_mapped))
+
+    if args.gra:
+        logger.info('Outputting the set of reads mapping to Xeno only for GRA calculation')
+        get_only_xeno_reads(meta.alignment['name'] + '.vg.mapped.sam', meta.alignment['name'] + '.hg.mapped.txt', args) if process in ['both', 'mapped'] else None
 
     logger.info('Updating reads that map in both Xeno and Reference...')
     map(update_isref, intersecting_mapped_readids)

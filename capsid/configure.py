@@ -15,8 +15,10 @@ import getpass
 import os
 import base64
 import ConfigParser
+import sys
 
 from database import *
+from pymongo.errors import DuplicateKeyError
 
 db, logger = None, None
 
@@ -25,58 +27,56 @@ def ensure_indexes():
     '''Creates the MongoDB Indices needed to effeciently run CaPSID'''
 
     # Project
-    logger.debug('Adding Project Index')
+    logger.info('Adding Project Index')
     db.project.ensure_index('label', unique=True)
 
     # Sample
-    logger.debug('Adding Sample Indices')
-    db.sample.ensure_index('name', unique=True)
-    db.sample.ensure_index('project')
+    logger.info('Adding Sample Indices')
+    db.sample.ensure_index([('projectId', pymongo.ASCENDING), ('name', pymongo.ASCENDING)], unique=True)
 
     # Alignment
-    logger.debug('Adding Alignment Index')
-    db.alignment.ensure_index('name', unique=True)
+    logger.info('Adding Alignment Index')
+    db.alignment.ensure_index([('projectId', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('name', pymongo.ASCENDING)], unique=True)
 
     # Genome
-    logger.debug('Adding Genome Indices')
+    logger.info('Adding Genome Indices')
     db.genome.ensure_index('gi', unique=True)
     db.genome.ensure_index('accession', unique=True)
     db.genome.ensure_index('pending', sparse=True)
 
     # Feature
-    logger.debug('Adding Feature Indices')
-    db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('strand', pymongo.ASCENDING)])
-    db.feature.ensure_index('genome')
+    logger.info('Adding Feature Indices')
+    db.feature.ensure_index([('genome', pymongo.ASCENDING), ('type', pymongo.ASCENDING), ('start', pymongo.ASCENDING)])
     db.feature.ensure_index('start')
 
     # Mapped
-    logger.debug('Adding Mapped Indices')
-    db.mapped.ensure_index('refStart')
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sample', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('project', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    logger.info('Adding Mapped Indices')
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('mapsGene', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('sampleId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('projectId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
+    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignmentId', pymongo.ASCENDING), ('refStart', pymongo.ASCENDING)], sparse=True)
     db.mapped.ensure_index([('readId', pymongo.ASCENDING), ('_id', pymongo.ASCENDING)])
-    db.mapped.ensure_index([('genome', pymongo.ASCENDING), ('alignment', pymongo.ASCENDING), ('refStrand', pymongo.ASCENDING)])
     
     # User
-    logger.debug('Adding User Index')
+    logger.info('Adding User Index')
     db.user.ensure_index('username', unique=True)
 
     # Role
-    logger.debug('Adding Role Index')
+    logger.info('Adding Role Index')
     db.role.ensure_index('authority', unique=True)
 
     # UserRole
-    logger.debug('Adding UserRole Index')
+    logger.info('Adding UserRole Index')
     db.userRole.ensure_index([('role', pymongo.ASCENDING), ('user', pymongo.ASCENDING)], unique=True)
 
     #statistics
-    logger.debug('Adding Statistics Index')
-    db.statistics.ensure_index('label')
-    db.statistics.ensure_index('sample')
-    db.statistics.ensure_index('genome')
+    logger.info('Adding Statistics Index')
+    db.statistics.ensure_index('ownerId')
+    db.statistics.ensure_index('gi')
 
     # GridFS
     #db.fs.chunks.ensure_Index([('files_id', pymongo.ASCENDING), ('n', pymongo.ASCENDING)], unique=True)
+
 
 def genome_samples():
     '''Calculate how many samples hit the genomes'''
@@ -94,6 +94,22 @@ function() {
 }
 """
 
+def create_project_background_model():
+        return {
+        "description" : "Project for background models",
+        "label" : "background",
+        "name" : "background",
+        "roles" : ["ROLE_" + "background"],
+        "version" : 0,
+        "wikiLink" : "background"
+        }
+
+
+def create_role_background_project():
+    return {
+        "authority": "ROLE_" + "background"
+        }
+
 
 def setup_config(args):
     '''Saves MongoDB settings to a configuration file'''
@@ -106,12 +122,13 @@ def setup_config(args):
     config.set('MongoDB', 'host', args.host or raw_input('Host [localhost]: ') or 'localhost')
     config.set('MongoDB', 'port', args.port or raw_input('Port [27017]: ') or '27017')
     config.set('MongoDB', 'database', args.database or raw_input('Database [capsid]: ') or 'capsid')
-    config.set('MongoDB', 'username', args.username or raw_input('Username [capsid]: ') or 'capsid')
-    config.set('MongoDB', 'password', args.password or getpass.getpass('Password: '))
+    config.set('MongoDB', 'username', args.username or raw_input('Username [none]: '))
+    config.set('MongoDB', 'password', args.password or getpass.getpass('Password [none]: '))
 
     # Writing our configuration file
     with open(os.path.expanduser('~/.capsid/capsid.cfg'), 'wb') as configfile:
         config.write(configfile)
+
 
 
 def main(args):
@@ -132,6 +149,15 @@ def main(args):
     ensure_indexes()
     #logger.info('Adding JavaScript Functions...')
     #genome_samples()
+    logger.info('Seeting a project for background models')
+    try:
+        db.project.insert(create_project_background_model(), safe=True)
+        logger.debug("project for background models inserted successfully")
+        db.role.insert(create_role_background_project(), safe=True)
+        logger.debug("role for background models inserted successfully")
+        logger.info("Project for background models added successfully to the database")
+    except DuplicateKeyError:    
+        logger.error("Project for background models already exists")
 
     logger.info('Done!')
 
