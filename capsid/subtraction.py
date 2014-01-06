@@ -264,6 +264,18 @@ def get_genome(gid):
     return genome
 
 
+
+def get_genome_gra(gid):
+    '''Query database and return genome in proper format for gra'''
+    try: 
+        genome_db = db.genome.find_one({'gi':gid})
+        genome_gra = 'gi' + '|' + str(genome_db['gi']) + '|ref|' + genome_db['accession'] + '.' + str(genome_db['version']) + '|' + genome_db['name'].split(' ')[0]  
+    except TypeError: 
+        genome_gra = False    
+    return genome_gra
+
+
+
 def build_lookup(column, header, gid):
     ''' '''
     global genomes
@@ -325,14 +337,27 @@ def extract_mapped(align, bamfile, sam_file, reference=False):
 
     if (0 <= align.mapq <= 3 or align.mapq >= mapq) and valid_mapped(align):
         if gra and sam_file: 
-          genome_sam = str(bamfile.getrname(align.tid))                                                                           
-          extract_mapped_sam(align,genome_sam,sam_file)   
+          try:  
+              #genome_sam = str(bamfile.getrname(align.tid))                                                                           
+              #extract_mapped_sam(align,genome_sam,sam_file)   
+              genome_sam = get_genome_gra(genomes[str(bamfile.getrname(align.tid))])   
+          except KeyError:
+              genome_sam = str(bamfile.getrname(align.tid))       
+          except ValueError:
+              pass
+          else:
+              if genome_sam:
+                  extract_mapped_sam(align,genome_sam,sam_file)
+
         try:
             genome = genomes[str(bamfile.getrname(align.tid))]
-                                   
         except KeyError:
             genome = determine_genome(bamfile.getrname(align.tid))
             if genome: genomes[str(bamfile.getrname(align.tid))] = genome
+        except ValueError:     
+            genome = False
+            pass
+
         
         # If it doesn't map to a genome in the database, assume it is mapping to
         # a junction and just save as an intersecting readId
