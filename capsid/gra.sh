@@ -1,6 +1,4 @@
 #!/bin/bash
-# Ivan Borozan 
-# Mar-13-2013
 # Calculate genome relative abundence using 'stats' from readscan
 
 xeno=$1
@@ -32,7 +30,10 @@ if [[ ! $READSCAN_TAXON ]]; then
 	exit 1
 fi
 
-echo $(date +%T)" perl ${directory}/readscan.pl stats -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz"
-perl ${directory}/readscan.pl stats --data -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz > $out/pathogen.gra.txt
+# We have a dependency here, and we don't have an obvious way to deploy it. So let's 
+# bundle it into a local lib and add that to @INC on the command line. 
+
+echo $(date +%T)" perl -I "${directory}/lib" "${directory}/readscan.pl" stats -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz"
+perl -I "${directory}/lib" "${directory}/readscan.pl" stats --data -R $READSCAN_PATHOGEN_REF -T $READSCAN_TAXON $out/pathogen.sam.gz > $out/pathogen.gra.txt
 
 echo $(date +%T)" Genome relative abundance finished..."
