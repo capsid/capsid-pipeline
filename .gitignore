@@ -8,3 +8,9 @@ build
 .idea/
 *.iml
 out/
+*.bam
+*.bai
+*.gbff
+*.refstat
+*.sam
+*.sam.gz
