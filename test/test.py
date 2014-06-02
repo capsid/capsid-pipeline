@@ -3,6 +3,7 @@ import capsid
 import logging
 from mock import patch
 import os.path
+import tempfile
 
 class Object(object):
     pass
@@ -425,6 +426,7 @@ class CapsidLoadTest(unittest.TestCase):
 
     args = Object()
     db = None
+    genomesFile = tempfile.gettempdir() + "/genomes.fa"
 
     def setUp(self):
         logging.basicConfig(level=logging.INFO)
@@ -476,7 +478,7 @@ class CapsidLoadTest(unittest.TestCase):
         self.db['fs.chunks'].remove()
 
         try:
-            os.remove("genomes.fa")
+            os.remove(self.genomesFile)
         except OSError:
             pass
 
@@ -516,7 +518,7 @@ class CapsidLoadTest(unittest.TestCase):
 
         # Now we can do the fasta thing. In theory.
 
-        setattr(self.args, 'output', "genomes.fa")
+        setattr(self.args, 'output', self.genomesFile)
         setattr(self.args, 'organism', None)
         setattr(self.args, 'taxonomy', None)
         setattr(self.args, 'ref', None)
@@ -532,7 +534,7 @@ class CapsidLoadTest(unittest.TestCase):
         self.assertEqual(exitCode, 0, "Should have an exit status of 0")
 
         # And the file genomes.fa should exist at this stage. 
-        self.assertTrue(os.path.exists("genomes.fa"))
+        self.assertTrue(os.path.exists(self.genomesFile))
 
 
         # Now for a wee bit of subtraction
@@ -543,7 +545,7 @@ class CapsidLoadTest(unittest.TestCase):
         setattr(self.args, 'project', "simu")
         setattr(self.args, 'process', "mapped")
         setattr(self.args, 'gra', True)
-        setattr(self.args, 'temp', ".")
+        setattr(self.args, 'temp', tempfile.gettempdir())
         setattr(self.args, 'lookup', None)
         setattr(self.args, 'filter', 0)
         setattr(self.args, 'xeno_lookup', [None, None])
