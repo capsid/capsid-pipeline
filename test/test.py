@@ -59,11 +59,11 @@ class CapsidTest(unittest.TestCase):
         done fairly early on. 
         '''
 
-        logger = Object()
-        logger.debug = lambda string: string
+        logging.basicConfig(level=logging.FATAL)
+        self.logging = logging
 
         self.db = capsid.database.connect(self.args)
-        capsid.configure.logger = logger
+        capsid.configure.logger = logging
         capsid.configure.db = self.db
         capsid.configure.ensure_indexes()
 
