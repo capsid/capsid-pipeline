@@ -561,6 +561,8 @@ class CapsidLoadTest(unittest.TestCase):
 
         # Right, almost done. Statistics
         setattr(self.args, 'projects', ["simu"])
+        setattr(self.args, 'bg', False)
+        setattr(self.args, 'bgm', False)
 
         exitCode = 0
 
