@@ -6,11 +6,11 @@ use Getopt::Long;
 use MongoDB;
 use JSON;
 
-my $database_name = "capsidstaging";
-my $database_host = "fervmongo1.res.oicr.on.ca";
-my $database_port = 27017;
-my $database_username = "capsid";
-my $database_password = "mko0MKO)";
+my $database_name;
+my $database_host;
+my $database_port;
+my $database_username;
+my $database_password;
 
 my $result = GetOptions(
 	"database" => \$database_name,
