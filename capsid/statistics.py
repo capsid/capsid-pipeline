@@ -104,12 +104,15 @@ def gene_coverage(query, genome):
     return mean, maximum
 
 
-def gene_hits(col, value, genome):
+def gene_hits(col, value, genome, pathogen):
     ''' '''
-
-    return db.mapped.find({col: value, "genome": genome, "mapsGene": {'$exists':  True}},
+    if not pathogen:
+        return db.mapped.find({col: value, "genome": genome, "mapsGene": {'$exists':  True}},
                           {"_id":0, "refStart":1, "refEnd":1})
-
+    else:
+        return db.mapped.find({col: value, "genome": genome, "mapsGene": {'$exists':  True}, "isRef": None},
+                          {"_id":0, "refStart":1, "refEnd":1})
+   
 
 def genome_coverage(query, genome):
     ''' '''
@@ -123,31 +126,54 @@ def genome_coverage(query, genome):
     return coverage
 
 
-def genome_hits(col, value, genome):
+def genome_hits(col, value, genome, pathogen):
     '''Calculate the number of hits the sample has on the genome'''
 
-    return db.mapped.find({col: value, "genome": genome},
+    if not pathogen:
+        return db.mapped.find({col: value, "genome": genome},
+                          {"_id":0, "refStart":1, "refEnd":1})
+    else:
+        return db.mapped.find({col: value, "genome": genome, "isRef": None},
                           {"_id":0, "refStart":1, "refEnd":1})
 
 
-def get_common_stats(project, genome_hits_query, gene_hits_query, genome):
+def get_common_stats(project, genome_hits_query, gene_hits_query, genome_hits_query_pathogen, gene_hits_query_pathogen, genome):
     '''Build dictionary containing common coverage statistiscs'''
 
     # Total number of hits on the genome
     genome_hit_count = genome_hits_query.count()
 
-    # Don't bother continuing if there are no hits
+    # Don't bother continuing if there are no hits in both 
     if not genome_hit_count:
         return None
 
     # Get the coverage of mapped alignments in the genome for that sample
     genome_coverage_percent = genome_coverage(genome_hits_query, genome)
-
+        
     # Total number of hits on just the genes of the genome
     gene_hit_count = gene_hits_query.count()
 
     # The average/max of the mean coverage on each gene
     gene_coverage_avg, gene_coverage_max = gene_coverage(gene_hits_query, genome)
+
+    # PATHOGENS ONLY HITS
+
+    # Total number of hits on the genome for pathogens only
+    genome_hit_count_pathogen = genome_hits_query_pathogen.count()
+
+    if  genome_hit_count_pathogen:
+        # Get the coverage of mapped alignments in the genome for that sample
+        genome_coverage_percent_pathogen = genome_coverage(genome_hits_query_pathogen, genome)
+        # Total number of hits on just the genes of the genome
+        gene_hit_count_pathogen = gene_hits_query_pathogen.count()
+        # The average/max of the mean coverage on each gene
+        gene_coverage_avg_pathogen, gene_coverage_max_pathogen = gene_coverage(gene_hits_query_pathogen, genome)
+    else:
+       genome_hit_count_pathogen = 0
+       genome_coverage_percent_pathogen= 0 
+       gene_hit_count_pathogen = 0
+       gene_coverage_avg_pathogen, gene_coverage_max_pathogen = 0, 0 
+
 
     stats = {
         "accession": genome['accession']
@@ -157,10 +183,15 @@ def get_common_stats(project, genome_hits_query, gene_hits_query, genome):
         ,  "project": project['name']
         ,  "projectId": project['_id']
         ,  "genomeHits": genome_hit_count
+        ,  "pathgenomeHits": genome_hit_count_pathogen
         ,  "geneHits": gene_hit_count
+        ,  "pathgeneHits": gene_hit_count_pathogen
         ,  "genomeCoverage": genome_coverage_percent
+        ,  "pathgenomeCoverage": genome_coverage_percent_pathogen
         ,  "geneCoverageAvg": gene_coverage_avg
+        ,  "pathgeneCoverageAvg": gene_coverage_avg_pathogen
         ,  "geneCoverageMax": gene_coverage_max
+        ,  "pathgeneCoverageMax": gene_coverage_max_pathogen
         ,  "tags": []
         }
 
@@ -180,6 +211,8 @@ def filter_stats(stats):
 
     if stats["geneCoverageMax"] < 0.5:
         stats["tags"].append("lowMaxCover")
+    if stats["pathgeneCoverageMax"] < 0.5:
+        stats["tags"].append("pathlowMaxCover")
     if phagePattern.search(stats["genome"]):
         stats["tags"].append("phage")
     if filter_bg:
@@ -188,9 +221,13 @@ def filter_stats(stats):
              if stats_bg["geneCoverageAvg"]:
                  if stats["geneCoverageAvg"] <= stats_bg["geneCoverageAvg"]:
                      stats["tags"].append("lowgeneCoverageAvg")
+                 if stats["pathgeneCoverageAvg"] <= stats_bg["geneCoverageAvg"]:
+                     stats["tags"].append("pathlowgeneCoverageAvg")
              if stats_bg["genomeCoverage"]:
                  if stats["genomeCoverage"] <= stats_bg["genomeCoverage"]:     
                      stats["tags"].append("lowgenomeCoverage")
+                 if stats["pathgenomeCoverage"] <= stats_bg["genomeCoverage"]: 
+                     stats["tags"].append("pathlowgenomeCoverage")
          else: 
                pass      
     return stats
@@ -200,10 +237,16 @@ def filter_stats(stats):
 def build_project_stats(project, genome):
     '''Build dictionary containing all project converage statistiscs'''
 
-    genome_hits_query = genome_hits('projectId', project['_id'], genome['gi'])
-    gene_hits_query = gene_hits('projectId', project['_id'], genome['gi'])
+    pathogen=False
+    genome_hits_query = genome_hits('projectId', project['_id'], genome['gi'], pathogen)
+    gene_hits_query = gene_hits('projectId', project['_id'], genome['gi'], pathogen)
 
-    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    # same for pathogen only hits 
+    pathogen=True
+    genome_hits_query_pathogen = genome_hits('projectId', project['_id'], genome['gi'], pathogen)
+    gene_hits_query_pathogen = gene_hits('projectId', project['_id'], genome['gi'], pathogen)
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome_hits_query_pathogen, gene_hits_query_pathogen, genome)
     if not stats:
         return None
 
@@ -211,19 +254,31 @@ def build_project_stats(project, genome):
     sample_coverage = db.statistics.find({'projectId': project['_id'], 'accession': genome['accession'], 'sampleId': {'$exists': 1}}, {'_id':0, 'geneCoverageMax':1})
     gene_coverage_max = max([x['geneCoverageMax'] for x in sample_coverage])
 
+    # same for pathogen only hits 
+    sample_coverage_pathogen = db.statistics.find({'projectId': project['_id'], 'accession': genome['accession'], 'sampleId': {'$exists': 1}}, {'_id':0, 'pathgeneCoverageMax':1})
+    gene_coverage_max_pathogen = max([x['pathgeneCoverageMax'] for x in sample_coverage_pathogen])
+
     stats["ownerType"] = "project"
     stats["ownerId"] = project['_id']
     stats["geneCoverageMax"] = gene_coverage_max
+    stats["pathgeneCoverageMax"] = gene_coverage_max_pathogen
     return filter_stats(stats)
 
 
 def build_sample_stats(project, sample, genome):
     '''Build dictionary containing all sample converage statistiscs'''
+    
+    pathogen=False
+    genome_hits_query = genome_hits('sampleId', sample['_id'], genome['gi'], pathogen)
+    gene_hits_query = gene_hits('sampleId', sample['_id'], genome['gi'], pathogen)
 
-    genome_hits_query = genome_hits('sampleId', sample['_id'], genome['gi'])
-    gene_hits_query = gene_hits('sampleId', sample['_id'], genome['gi'])
+    # same for pathogen only hits 
+    pathogen=True
+    genome_hits_query_pathogen = genome_hits('sampleId', sample['_id'], genome['gi'], pathogen)
+    gene_hits_query_pathogen = gene_hits('sampleId', sample['_id'], genome['gi'], pathogen)
 
-    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome_hits_query_pathogen, gene_hits_query_pathogen, genome)
     if not stats:
         return None
 
@@ -237,10 +292,16 @@ def build_sample_stats(project, sample, genome):
 def build_alignment_stats(project, alignment, genome):
     '''Build dictionary containing all alignment coverage statistiscs'''
 
-    genome_hits_query = genome_hits('alignmentId', alignment['_id'], genome['gi'])
-    gene_hits_query = gene_hits('alignmentId', alignment['_id'], genome['gi'])
+    pathogen=False
+    genome_hits_query = genome_hits('alignmentId', alignment['_id'], genome['gi'], pathogen)
+    gene_hits_query = gene_hits('alignmentId', alignment['_id'], genome['gi'], pathogen)
 
-    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome)
+    pathogen=True    
+    genome_hits_query_pathogen = genome_hits('alignmentId', alignment['_id'], genome['gi'], pathogen)
+    gene_hits_query_pathogen = gene_hits('alignmentId', alignment['_id'], genome['gi'], pathogen)
+
+
+    stats = get_common_stats(project, genome_hits_query, gene_hits_query, genome_hits_query_pathogen, gene_hits_query_pathogen, genome)
     if not stats:
         return None
 
