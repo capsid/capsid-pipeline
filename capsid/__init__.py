@@ -12,7 +12,7 @@
 import logging, logging.handlers
 import os, sys, errno, ConfigParser
 
-import configure, qfilter, gbloader, subtraction, statistics, fasta, intersect
+import configure, qfilter, gbloader, subtraction, statistics, fasta, intersect, project, sample, alignment, taxonomy
 
 
 def chunks(l, n):
@@ -75,4 +75,4 @@ def get_version(v):
             version = "{0}.dev{1}".format(version, v[5])
     return version
 
-__version__ = get_version((1, 4, 3, "f", 0, 0))
+__version__ = get_version((1, 5, 0, "a", 2, 0))

@@ -1,6 +1,15 @@
 News
 ====
 
+1.5.0a2
+-----
+
+* changed the filtering approach from collapsing of FASTQ and filtering to filtering
+* added calculating genome relative abundance (gra) using third party software readscan which needs to be installed (see the /etc directory)
+* fixed the bug where RAM usage explodes when reading a xeno file during subtraction
+
+
+
 1.4.3
 -----
 

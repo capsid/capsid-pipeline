@@ -35,6 +35,42 @@ def clean_ext(name):
     return f.name if f.ext == 'fastq' else name
 
 
+def make_filtered_fastq_files(args, records):
+    '''Make filtered FASTQ files'''
+
+    f_single = clean_ext(args.single)
+    f_pair = clean_ext(args.pair) if args.pair else None
+
+    ft_single = f_single + '.quality.fastq'
+    ft_pair = f_pair + '.quality.fastq' if f_pair else None
+
+    logger.debug('Filtered Fastq: {0}'.format(ft_single))
+    if f_pair: logger.debug('Filtered Fastq: {0}'.format(ft_pair))
+
+    logger.info('Generating filtered Fastq file...')
+
+    fh_single = open(ft_single, 'w')
+    fh_pair = open(ft_pair, 'w') if f_pair else None
+
+    for record in records:
+        counter.saved.next()
+        fh_single.write('@{description}\n{seq}\n+{description}\n{quality}\n'.format(
+            description = record.single.description,
+            seq = record.single.seq,
+            quality = SeqIO.QualityIO._get_sanger_quality_str(record.single))
+            )
+
+        if f_pair:
+            fh_pair.write('@{description}\n{seq}\n+{description}\n{quality}\n'.format(
+                description = record.pair.description,
+                seq = record.pair.seq,
+                quality = SeqIO.QualityIO._get_sanger_quality_str(record.pair))
+                )
+ 
+    fh_single.close()
+    if fh_pair: fh_pair.close()
+
+
 def make_fastq_file(f):
     '''Turn 1-lined sorted temp file into fastq format'''
 
@@ -87,7 +123,7 @@ def make_sortable_file(records, f_single, f_pair):
     if f_pair: logger.debug('Temp Filtered File: {0}'.format(ft_pair))
 
     logger.info('Creating temporary files for collapsing...')
-
+    
     fh_single = open(ft_single, 'w')
     fh_pair = open(ft_pair, 'w') if f_pair else None
     
@@ -105,14 +141,13 @@ def sort_unique(records, args):
 
     make_sortable_file(records, f_single, f_pair)
 
-    #collapse if not pair end
+    # Do not collapse for either single-end or pair-end
     if not f_pair:
         collapse_file(f_single)
-    make_fastq_file(f_single)
+        make_fastq_file(f_single)
 
     if f_pair:
-        # Thinking about how best to do the collapsing for pair end
-        #collapse_file(f_pair)
+        # collapse_file(f_pair)
         make_fastq_file(f_pair)
 
 
@@ -177,20 +212,20 @@ def summary(args):
     # Using counter.*.next here sets it to the correct value for printing.
     records = counter.records.next()
     saved = counter.saved.next()
-
-
+ 
     if records:
         percent = (saved/records) * 100
         logger.info('{0} filtered and saved to {1}.quality.fastq'.format(args.single, clean_ext(args.single)))
         if args.pair:
             logger.info('{0} collapsed and saved to {1}.quality.fastq'.format(args.pair, clean_ext(args.pair)))
         logger.info('{0} of {1} ({2:.2f}%) records passed filter.'.format(saved, records, percent))
-        if not args.pair:
-            p = subprocess.Popen(["wc", "-l", clean_ext(args.single) + ".quality.fastq"], stdout=subprocess.PIPE)
-            reads = int(p.communicate()[0].partition(' ')[0]) // 4
-            percent_c = (reads/saved) * 100
-            logger.info('{0} of {1} ({2:.2f}%) records left after collapsing.'.format(reads, saved, percent_c))
-            logger.info('{0} of {1} ({2:.2f}%) records saved.'.format(reads, records, (reads/records)*100))
+        # collapsing of reads in FASTQ format 
+        #if not args.pair:
+        #    p = subprocess.Popen(["wc", "-l", clean_ext(args.single) + ".quality.fastq"], stdout=subprocess.PIPE)
+        #    reads = int(p.communicate()[0].partition(' ')[0]) // 4
+        #    percent_c = (reads/saved) * 100
+        #    logger.info('{0} of {1} ({2:.2f}%) records left after collapsing.'.format(reads, saved, percent_c))
+        #    logger.info('{0} of {1} ({2:.2f}%) records saved.'.format(reads, records, (reads/records)*100))
     else:
         logger.warning('No records found.')
 
@@ -207,11 +242,12 @@ def main(args):
     args.format = 'fastq-' + 'sanger'
 
     records = parse_fastq(args)
-    sort_unique(records, args)
+    make_filtered_fastq_files(args,records)
 
-    logger.info('Removing temporary files...')
-    clean_up(clean_ext(args.single))
-    if args.pair: clean_up(clean_ext(args.pair))
+    #sort_unique(records, args)
+    #logger.info('Removing temporary files...')
+    #clean_up(clean_ext(args.single))
+    #if args.pair: clean_up(clean_ext(args.pair))
 
     summary(args)
 

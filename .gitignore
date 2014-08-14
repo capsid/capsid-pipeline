@@ -5,3 +5,12 @@ build
 .project
 .pydevproject
 .DS_Store
+.idea/
+*.iml
+out/
+*.bam
+*.bai
+*.gbff
+*.refstat
+*.sam
+*.sam.gz

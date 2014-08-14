@@ -34,7 +34,8 @@ def connect(args):
 
     logger.debug('Connecting to {0}:{1} ({2})'.format(address, port, database))
     connection = Connection(address, port)
-    admindb = connection.admin
-    admindb.authenticate(username, password)
+    authdb = connection[database]
+    if password:
+        authdb.authenticate(username, password)
 
     return connection[database]

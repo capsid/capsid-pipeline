@@ -1,0 +1,168 @@
+List of MongoDB indexes
+=======================
+
+Collection: project - no sharding needed
+
+OK { "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.project", "name" : "_id_" }
+OK { "v" : 1, "key" : { "label" : 1 }, "unique" : true, "ns" : "capsidstaging.project", "name" : "label_1" }
+
+> db.project.ensureIndex({ "label" : 1 }, {"unique" : true})
+
+Collection: sample - no sharding needed
+
+OK { "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.sample", "name" : "_id_" }
+OK { "v" : 1, "key" : { "projectId" : 1, "name" : 1 }, "unique" : true, "ns" : "capsidstaging.sample", "name" : "projectId_1_name_1" }
+
+> db.sample.ensureIndex({ "projectId" : 1, "name" : 1 }, {"unique" : true})
+
+Collection: alignment - no sharding needed
+
+OK { "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.alignment", "name" : "_id_" }
+OK { "v" : 1, "key" : { "projectId" : 1, "sampleId" : 1, "name" : 1 }, "unique" : true, "ns" : "capsidstaging.alignment", "name" : "projectId_1_sampleId_1_name_1" }
+
+> db.alignment.ensureIndex({ "projectId" : 1, "sampleId" : 1, "name" : 1 }, {"unique" : true})
+
+Collection: genome - shard key: gi
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.genome", "name" : "_id_" }
+{ "v" : 1, "key" : { "gi" : 1 }, "unique" : true, "ns" : "capsidstaging.genome", "name" : "gi_1" }
+{ "v" : 1, "key" : { "accession" : 1 }, "unique" : true, "ns" : "capsidstaging.genome", "name" : "accession_1" }
+{ "v" : 1, "key" : { "pending" : 1 }, "ns" : "capsidstaging.genome", "sparse" : true, "name" : "pending_1" }
+
+> db.genome.ensureIndex({ "pending" : 1 }, {"sparse" : true})
+
+# Issue here is: can't use unique undexes with accession and gi when sharded. So best to probably drop the
+# unique constraint on accession #s. 
+
+Collection: feature - shard key: genome
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.feature", "name" : "_id_" }
+{ "v" : 1, "key" : { "genome" : 1, "type" : 1, "start" : 1 }, "ns" : "capsidstaging.feature", "name" : "genome_1_type_1_start_1" }
+SKIP { "v" : 1, "key" : { "start" : 1 }, "ns" : "capsidstaging.feature", "name" : "start_1" }
+
+> db.feature.ensureIndex({ "genome" : 1, "type" : 1, "start" : 1 })
+
+# Now sure why start should be used sans genome and type. Should check that. Can't see where it could ever be 
+# used. Let's assume it's no longer needed. 
+
+Collection: mapped - shard key: genome
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.mapped", "name" : "_id_" }
+{ "v" : 1, "key" : { "genome" : 1, "mapsGene" : 1 }, "ns" : "capsidstaging.mapped", "sparse" : true, "name" : "genome_1_mapsGene_1" }
+{ "v" : 1, "key" : { "genome" : 1, "sampleId" : 1, "refStart" : 1 }, "ns" : "capsidstaging.mapped", "sparse" : true, "name" : "genome_1_sampleId_1_refStart_1" }
+{ "v" : 1, "key" : { "genome" : 1, "projectId" : 1, "refStart" : 1 }, "ns" : "capsidstaging.mapped", "sparse" : true, "name" : "genome_1_projectId_1_refStart_1" }
+{ "v" : 1, "key" : { "genome" : 1, "alignmentId" : 1, "refStart" : 1 }, "ns" : "capsidstaging.mapped", "sparse" : true, "name" : "genome_1_alignmentId_1_refStart_1" }
+{ "v" : 1, "key" : { "readId" : 1, "alignmentId" : 1 }, "ns" : "capsidstaging.mapped", "name" : "readId_1_alignmentId_1", "background" : true }
+
+> db.mapped.ensureIndex({ "genome" : 1, "mapsGene" : 1 }, {"sparse" : true})
+> db.mapped.ensureIndex({ "genome" : 1, "sampleId" : 1, "refStart" : 1 }, {"sparse" : true})
+> db.mapped.ensureIndex({ "genome" : 1, "projectId" : 1, "refStart" : 1 }, {"sparse" : true})
+> db.mapped.ensureIndex({ "genome" : 1, "alignmentId" : 1, "refStart" : 1 }, {"sparse" : true})
+> db.mapped.ensureIndex({ "readId" : 1, "alignmentId" : 1 })
+
+Collection: user - no sharding needed
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.user", "name" : "_id_" }
+{ "v" : 1, "key" : { "username" : 1 }, "unique" : true, "ns" : "capsidstaging.user", "name" : "username_1" }
+
+> db.user.ensureIndex({ "username" : 1 }, { "unique" : true })
+
+Collection: role - no sharding needed
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.role", "name" : "_id_" }
+{ "v" : 1, "key" : { "authority" : 1 }, "unique" : true, "ns" : "capsidstaging.role", "name" : "authority_1" }
+
+> db.role.ensureIndex({ "authority" : 1 }, { "unique" : true })
+
+Collection: userRole - no sharding needed
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.userRole", "name" : "_id_" }
+{ "v" : 1, "key" : { "role" : 1, "user" : 1 }, "unique" : true, "ns" : "capsidstaging.userRole", "name" : "role_1_user_1" }
+
+> db.userRole.ensureIndex({ "role" : 1, "user" : 1 }, { "unique" : true })
+
+Collection: statistics - shard key: gi
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.statistics", "name" : "_id_" }
+{ "v" : 1, "key" : { "ownerId" : 1 }, "ns" : "capsidstaging.statistics", "name" : "ownerId_1" }
+{ "v" : 1, "key" : { "gi" : 1 }, "ns" : "capsidstaging.statistics", "name" : "gi_1" }
+
+> db.statistics.ensureIndex({ "ownerId" : 1 })
+
+Collection: fs.chunks - shard key: files_id
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.fs.chunks", "name" : "_id_" }
+{ "v" : 1, "key" : { "files_id" : 1, "n" : 1 }, "unique" : true, "ns" : "capsidstaging.fs.chunks", "name" : "files_id_1_n_1" }
+
+> db.fs.chunks.ensureIndex({ "files_id" : 1, "n" : 1 }, { "unique" : true })
+
+Collection: fs.files - no sharding needed
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.fs.files", "name" : "_id_" }
+
+Collection: taxa - no sharding needed
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.taxa", "name" : "_id_" }
+{ "v" : 1, "key" : { "parent" : 1 }, "ns" : "capsidstaging.taxa", "name" : "parent_1" }
+{ "v" : 1, "key" : { "left" : 1 }, "ns" : "capsidstaging.taxa", "name" : "left_1" }
+
+> db.taxa.ensureIndex({ "parent" : 1 })
+> db.taxa.ensureIndex({ "left" : 1 })
+
+Collection: gitaxid - no sharding needed
+
+{ "v" : 1, "key" : { "_id" : 1 }, "ns" : "capsidstaging.gitaxid", "name" : "_id_" }
+
+[11:52:42 swatt ~] $ mongo --host fervmongo1.res.oicr.on.ca
+MongoDB shell version: 2.4.9
+connecting to: fervmongo1.res.oicr.on.ca:27017/test
+mongos> use config
+switched to db config
+mongos> db.databases.find( { "partitioned": true } )
+mongos> use admin
+switched to db admin
+mongos> db.runCommand( { listShards : 1 } )
+{ "shards" : [ ], "ok" : 1 }
+mongos> sh.addShard( "fervmongo1.res.oicr.on.ca:27018" )
+{ "shardAdded" : "shard0000", "ok" : 1 }
+mongos> sh.addShard( "fervmongo2.res.oicr.on.ca:27018" )
+{ "shardAdded" : "shard0001", "ok" : 1 }
+mongos> sh.addShard( "fervmongo3.res.oicr.on.ca:27018" )
+{ "shardAdded" : "shard0002", "ok" : 1 }
+mongos> db.runCommand( { listShards : 1 } )
+{
+	"shards" : [
+		{
+			"_id" : "shard0000",
+			"host" : "fervmongo1.res.oicr.on.ca:27018"
+		},
+		{
+			"_id" : "shard0001",
+			"host" : "fervmongo2.res.oicr.on.ca:27018"
+		},
+		{
+			"_id" : "shard0002",
+			"host" : "fervmongo3.res.oicr.on.ca:27018"
+		}
+	],
+	"ok" : 1
+}
+mongos> ^D
+[13:11:51 swatt ~] $ mongo --host fervmongo1.res.oicr.on.ca
+MongoDB shell version: 2.4.9
+connecting to: fervmongo1.res.oicr.on.ca:27017/test
+mongos> use admin
+switched to db admin
+mongos> sh.enableSharding("capsidstaging")
+{ "ok" : 1 }
+mongos> sh.shardCollection("capsidstaging.genome", { "gi": 1 } )
+{ "collectionsharded" : "capsidstaging.genome", "ok" : 1 }
+mongos> sh.shardCollection("capsidstaging.feature", { "genome": 1 } )
+{ "collectionsharded" : "capsidstaging.feature", "ok" : 1 }
+mongos> sh.shardCollection("capsidstaging.mapped", { "genome": 1 } )
+{ "collectionsharded" : "capsidstaging.mapped", "ok" : 1 }
+mongos> sh.shardCollection("capsidstaging.fs.chunks", { "files_id": 1 } )
+{ "collectionsharded" : "capsidstaging.fs.chunks", "ok" : 1 }
+mongos> sh.shardCollection("capsidstaging.statistics", { "gi": 1 } )
+{ "collectionsharded" : "capsidstaging.statistics", "ok" : 1 }
+mongos> ^D

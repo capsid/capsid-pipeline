@@ -19,6 +19,9 @@ def configure_(args):
 def gbloader_(args):
     capsid.gbloader.main(args)
 
+def taxonomy_(args):
+    capsid.taxonomy.main(args)
+
 def fasta_(args):
     capsid.fasta.main(args)
 
@@ -34,6 +37,14 @@ def intersect_(args):
 def statistics_(args):
     capsid.statistics.main(args)
 
+def project_(args):
+    capsid.project.main(args)
+
+def sample_(args):
+    capsid.sample.main(args)
+    
+def alignment_(args):
+    capsid.alignment.main(args)
 
 if __name__ == '__main__':
     import argparse
@@ -77,6 +88,20 @@ if __name__ == '__main__':
     # AutoRun
     gbloader_parser.set_defaults(func=gbloader_)
 
+    ### Taxonomy Loader ########################################################
+    taxonomy_parser = subparsers.add_parser('taxonomy',
+                                            formatter_class=argparse.RawDescriptionHelpFormatter,
+                                            description='Taxonomy Loader\n\nExample:\n\tcapsid taxonomy taxon_directory',
+                                            help='Taxonomy Loader')
+    taxonomy_parser.add_argument('directory', metavar='F', help='Taxonomy data directory')
+    taxonomy_parser.add_argument('--repair', action='store_true', default=False, help='Overwrite existing taxa instead of skipping them')
+    ## Logging Options
+    verbose_debug = taxonomy_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to WARNING')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    taxonomy_parser.set_defaults(func=taxonomy_)
+
     ### Fasta Generator #######################################################
     fasta_parser = subparsers.add_parser('fasta',
                                          formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -109,12 +134,18 @@ if __name__ == '__main__':
     subtract_parser.add_argument('-p', '--process', choices=['both', 'mapped', 'unmapped'], default='mapped', help='save mapped, unmapped or both')
     # MapQ score filter
     subtract_parser.add_argument('-f', '--filter', metavar='mapq', default=0, help='filter out alignments with lower mapq value')
+    # Temp directory for processing 
+    subtract_parser.add_argument('-t', '--temp', metavar='DIR', default='./', help='temp dir used for sorting and digital subtraction')
+    subtract_parser.add_argument('-gra', action='store_true', default=False, help='calculate genome relative abundances (gra)')
     # Lookup Options
     lookupf = subtract_parser.add_argument_group()
     lookupf.add_argument('-l', '--lookup', metavar=('file', 'column'), nargs=2, default=None, help='lookup file and genome identifier(gi, accession) for both xeno and reference.')
     lookupf.add_argument('-xl', '--xeno_lookup', metavar=('file', 'column'), nargs=2, default=[None, None], help='lookup file and genome identifier(gi, accession) for xeno.')
     lookupf.add_argument('-rl', '--ref_lookup', metavar=('file', 'column'), nargs=2, default=[None, None], help='lookup file and genome identifier(gi, accession) for reference.')
-
+    # Auto Create P/S
+    subtract_parser.add_argument('--sample', help='Sample Name')
+    subtract_parser.add_argument('--project', help='Project Label')
+    
     # Logging Options
     verbose_debug = subtract_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
@@ -153,6 +184,10 @@ if __name__ == '__main__':
     # Project Select
     project = stats_parser.add_argument_group('Project Select', 'Select which project(s) to update by passing the project label(s)')
     project.add_argument('projects', nargs='+', metavar="P", help="Project Label from Database")
+    # Background
+    background = stats_parser.add_mutually_exclusive_group()
+    background.add_argument('-bg', action='store_true', default=False, help='Calculate stats for background models to be used within a project(s) the project label for this option should be "background"')
+    background.add_argument('-bgm', dest='bgm', default=False, help='Select the background model for the project(s) (a model is a sample within the "background" project)')
     # AutoRun
     stats_parser.set_defaults(func=statistics_)
 
@@ -170,10 +205,72 @@ if __name__ == '__main__':
     verbose_debug = int_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
     verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
-
     # AutoRun
     int_parser.set_defaults(func=intersect_)
 
+    ### Project ########################################################
+    prj_parser = subparsers.add_parser('project',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Create Project\n\nExample\n\tcapsid project PRJ1',
+                                         help='Project')
+
+    # Project Req Atter
+    prj_parser.add_argument('project', metavar='LABEL', help='Project Label')
+    prj_parser.add_argument('--name', dest="pname", help='Project Name')
+    prj_parser.add_argument('--desc', dest="pdesc", help='Project Description')
+    prj_parser.add_argument('--link', dest="link", help='Project Link')
+
+    # Logging Options
+    verbose_debug = prj_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    prj_parser.set_defaults(func=project_)
+
+    ### Sample ########################################################
+    smpl_parser = subparsers.add_parser('sample',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Create Sample\n\nExample\n\tcapsid sample SAMP001 PRJ1',
+                                         help='Project')
+
+    # Project Req Atter
+    smpl_parser.add_argument('sample', metavar='NAME', help='Sample Name')
+    smpl_parser.add_argument('project', metavar='PROJECT',help='Project Label')
+    smpl_parser.add_argument('--desc', dest="sdesc", help='Description')
+    smpl_parser.add_argument('--role', help='Role')
+    smpl_parser.add_argument('--source', help='Source')
+    smpl_parser.add_argument('--cancer', help='Cancer Type')
+
+    # Logging Options
+    verbose_debug = smpl_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    smpl_parser.set_defaults(func=sample_)
+    
+    ### Alignment ########################################################
+    aln_parser = subparsers.add_parser('alignment',
+                                         formatter_class=argparse.RawDescriptionHelpFormatter,
+                                         description='Create Alignment\n\nExample\n\tcapsid alignment ALN1 SAMP001 PRJ1',
+                                         help='Project')
+
+    # Project Req Atter
+    aln_parser.add_argument('align', metavar='NAME', help='Alignment Name')
+    aln_parser.add_argument('sample', metavar='SAMPLE', help='Sample Name')
+    aln_parser.add_argument('project', metavar='PROJECT',help='Project Label')
+    aln_parser.add_argument('--aligner', help='Aligner')
+    aln_parser.add_argument('--platform', help='Platform')
+    aln_parser.add_argument('--type', help='Type')
+    aln_parser.add_argument('--infile', help='Alignment Input file')
+    aln_parser.add_argument('--outfile', help='Alignment Outfile file')
+
+    # Logging Options
+    verbose_debug = aln_parser.add_mutually_exclusive_group()
+    verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='Set logging output to ERROR')
+    verbose_debug.add_argument('-d', '--debug', action='store_const', dest='logging', const="DEBUG", default='INFO', help='Set logging output to DEBUG')
+    # AutoRun
+    aln_parser.set_defaults(func=alignment_)
+    
     ### Run ###
     args = parser.parse_args()
     args.logging = capsid.log(args)
