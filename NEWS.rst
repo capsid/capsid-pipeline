@@ -1,6 +1,12 @@
 News
 ====
 
+1.6.a0
+------
+
+*Release date: 16 September 2014*
+
+
 1.5.0a2
 -----
 
