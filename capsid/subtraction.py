@@ -211,7 +211,8 @@ def build_mapped(align, genome, reference):
         PG = None
 
     mapped = {
-       "readId": align.qname
+       # take only the read identifier exclude /1 and /2 
+       "readId": align.qname.split("/")[0]
        , "refStrand": -1 if align.is_reverse else 1
        , "refStart": int(align.pos) + 1 # pysam is 0-based index
        , "refEnd": int(ref_end)
@@ -372,7 +373,7 @@ def extract_mapped(align, bamfile, sam_file, reference=False):
 
 def maps_xeno(align, readids):
     '''Checks if alignment readId matches any in readids set'''
-    return align.qname in readids
+    return align.qname.split("/")[0] in readids
 
 
 def extract_alignment(align, bamfile, readids, fastq, hgids):
