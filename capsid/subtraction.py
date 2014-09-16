@@ -76,6 +76,7 @@ def update_isref(readId):
 
 def extract_unmapped(align, fastq):
     """Output unmapped alignments to Fastq file"""
+    # here align.qname should be extracted in its original form i.e. with /1 and /2 if they exist 
     fastq.write("@{0:>s}\n{1:>s}\n+\n{2:>s}\n".format(str(align.qname), str(align.query), str(align.qqual)))
 
 
@@ -92,12 +93,12 @@ def tuple_to_CIG(readcig):
 # new 
 def extract_mapped_sam(align, genome_sam, sam_file):
     """Output mapped xeno reads to a sam file"""
-    sam_file.write("{0:>s}\t{1:>s}\t{2:>s}\t{3:>s}\t{4:>s}\t{5:>s}\t{6:>s}\t{7:>s}\t{8:>s}\t{9:>s}\t{10:>s}\t{11:>s}\n".format(str(align.qname),str(align.flag),genome_sam,str(align.pos + 1),str(align.mapq),str(tuple_to_CIG(align.cigar)),'*','0','0',str(align.query),'*','AS:i:' + str(align.opt('AS'))))
+    sam_file.write("{0:>s}\t{1:>s}\t{2:>s}\t{3:>s}\t{4:>s}\t{5:>s}\t{6:>s}\t{7:>s}\t{8:>s}\t{9:>s}\t{10:>s}\t{11:>s}\n".format(str(align.qname.split("/")),str(align.flag),genome_sam,str(align.pos + 1),str(align.mapq),str(tuple_to_CIG(align.cigar)),'*','0','0',str(align.query),'*','AS:i:' + str(align.opt('AS'))))
 
 # new 
 def extract_hg_readIds(align,hgids):
     """Output mapped hg readId to a file"""
-    hgids.write("{0:>s}\n".format(align.qname))
+    hgids.write("{0:>s}\n".format(align.qname.split("/")))
 
 def get_readscan_data(readscan_file):
     row_number = 0
@@ -366,7 +367,7 @@ def extract_mapped(align, bamfile, sam_file, reference=False):
             counter.ref_mapped.next() if reference else counter.xeno_mapped.next()
             mapped = build_mapped(align, genome, reference)
         else:
-            mapped = {'readId': align.qname, 'genome': None}
+            mapped = {'readId': align.qname.split("/"), 'genome': None}
 
         return mapped
 
