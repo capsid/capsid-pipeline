@@ -75,4 +75,8 @@ def get_version(v):
             version = "{0}.dev{1}".format(version, v[5])
     return version
 
+<<<<<<< HEAD
 __version__ = get_version((1, 6, 0, "f", 0, 0))
+=======
+__version__ = get_version((1, 6, 0, "a", 0, 0))
+>>>>>>> develop
