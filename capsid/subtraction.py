@@ -180,16 +180,30 @@ def maps_gene(mapped):
 def build_mapped(align, genome, reference):
     '''Generates dict for mapped alignments'''
 
+    # Since align.qqual is in Sanger format. 
     scores = [ord(m)-33 for m in align.qqual]
 
-    if align.is_proper_pair:
-        align_length = align.isize
-        ref_end = align.pos + align.isize + 1
-    else:
+    #if align.is_proper_pair:
+        #align_length = align.isize
+        #ref_end = align.pos + align.isize + 1
+    #else:
         # If the cigar data is missing [(), ()] give it a length of 1
-        align_length = align.alen
-        ref_end = align.aend or align.pos + align_length + 1
+    #    align_length = align.alen
+    #    ref_end = align.aend or align.pos + align_length + 1
 
+
+    if align.alen is None:
+        align_length = align.pos + align.qlen + 1        
+    else:
+        align_length = align.alen 
+        
+
+    if align.aend is None:
+        ref_end = align.pos + align.qlen + 1
+    else:
+        ref_end = align.aend
+
+ 
     try:
         MD = align.opt('MD')
         mismatch = len(re.findall("\D", MD))
@@ -328,9 +342,12 @@ def insert_mapped(mapped, process):
 
 
 def valid_mapped(align):
-    '''Returns true if single-end or pair-end with isize'''
-
-    return (not align.is_proper_pair or align.is_proper_pair and align.isize) and not align.is_unmapped
+    '''Returns true if valid single-end or pair-end alignment'''
+    #return (not align.is_proper_pair or align.is_proper_pair and align.isize) and not align.is_unmapped
+    if align.is_paired:
+        return (align.is_proper_pair or not align.mate_is_unmapped or not align.is_unmapped)
+    else:
+        return (not align.is_unmapped)
 
 
 def extract_mapped(align, bamfile, sam_file, reference=False):
@@ -382,11 +399,14 @@ def extract_alignment(align, bamfile, readids, fastq, hgids):
 
     in_xeno = maps_xeno(align, readids)
 
-    if align.is_unmapped and not in_xeno and fastq:
+    #if align.is_unmapped and not in_xeno and fastq:
+    if not valid_mapped(align) and not in_xeno and fastq:
         counter.ref_unmapped.next()
         extract_unmapped(align, fastq)
-    elif not align.is_unmapped and in_xeno:
+    #elif not align.is_unmapped and in_xeno:
+    elif valid_mapped(align) and in_xeno:
         if gra and hgids:
+            # i.e map to both pathogen and human ref
             extract_hg_readIds(align,hgids)
         return extract_mapped(align, bamfile, False, True)
 
@@ -446,14 +466,16 @@ def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
     maps_gene = counter.maps_gene.next()
 
     total_mapped = xeno_mapped + ref_mapped if process in ['mapped', 'both'] else 0
-
+    
     logger.info('Total mapped alignments found in Xeno BAM file: {0}'.format(xeno_mapped))
-    logger.info('Total mapped alignments found in Reference BAM file: {0}'.format(ref_mapped))
+    logger.info('Total mapped alignments found in Reference (only for Refs stored in the db) and Xeno BAM files: {0}'.format(ref_mapped))
     logger.info('Total mapped alignments added to database: {0}'.format(total_mapped))
     logger.info('Xeno reads that hit a gene ("mapsGene":1): {0}'.format(maps_gene))
     logger.info('Reads that map to Xeno with unique Read IDs: {0}'.format(len(xeno_mapped_readids)))
-    logger.info('Reads that map to both Xeno and Reference with unique Read IDs: {0}'.format(len(intersecting_mapped_readids)))
-    logger.info('Unmapped alignments found in Reference BAM file: {0}'.format(ref_unmapped))
+    # Note: Reads that map to both Xeno and Reference _BUT_ also include those human ref that are not stored in the db with unique Read IDs
+    logger.info('Reads that map to both Xeno and Reference with unique Read IDs : {0}'.format(len(intersecting_mapped_readids)))
+    if process in ['both', 'unmapped']:
+        logger.info('Unmapped alignments found in Reference BAM file: {0}'.format(ref_unmapped))
 
 
 def main(args):
