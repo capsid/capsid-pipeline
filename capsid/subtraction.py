@@ -345,7 +345,7 @@ def valid_mapped(align):
     '''Returns true if valid single-end or pair-end alignment'''
     #return (not align.is_proper_pair or align.is_proper_pair and align.isize) and not align.is_unmapped
     if align.is_paired:
-        return (align.is_proper_pair or not align.mate_is_unmapped or not align.is_unmapped)
+        return (align.is_proper_pair and not align.mate_is_unmapped and not align.is_unmapped)
     else:
         return (not align.is_unmapped)
 
