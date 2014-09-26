@@ -7,6 +7,10 @@ News
 
 *Release date: 16 September 2014*
 
+* added taxon tables for viruses
+* gra calculations do not need readscan to be installed anymore
+* metrics are now calculated for both reads aligning to pathogen only (excluding those aligning simultaneously to the human ref (i.e digital subtraction)) and reads aligning simultaneously to both pathogen and human
+* paired reads from the human ref pair-end BAM file are considered valid only if aligned as proper pairs
 
 1.5.0a2
 -----
