@@ -265,6 +265,9 @@ def build_mapped(align, genome, reference):
     if reference:
         mapped['isRef'] = 1
 
+    if lab:
+        mapped['lab'] = lab
+
     return mapped
 
 
@@ -480,7 +483,7 @@ def summary(xeno_mapped_readids, intersecting_mapped_readids, process):
 
 def main(args):
     ''' '''
-    global db, logger, meta, mapq, temp, gra
+    global db, logger, meta, mapq, temp, gra, lab
     logger = args.logging.getLogger(__name__)
 
     if args.lookup:
@@ -496,6 +499,7 @@ def main(args):
     process = args.process
     temp = args.temp
     gra = args.gra
+    lab = args.lab
 
     p_mapped = partial(insert_mapped, process=process)
 

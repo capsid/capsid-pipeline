@@ -107,10 +107,10 @@ def gene_coverage(query, genome):
 def gene_hits(col, value, genome, pathogen):
     ''' '''
     if not pathogen:
-        return db.mapped.find({col: value, "genome": genome, "mapsGene": {'$exists':  True}},
+        return db.mapped.find({col: value, "genome": genome, "lab": lab, "mapsGene": {'$exists':  True}},
                           {"_id":0, "refStart":1, "refEnd":1})
     else:
-        return db.mapped.find({col: value, "genome": genome, "mapsGene": {'$exists':  True}, "isRef": None},
+        return db.mapped.find({col: value, "genome": genome, "lab": lab, "mapsGene": {'$exists':  True}, "isRef": None},
                           {"_id":0, "refStart":1, "refEnd":1})
    
 
@@ -130,10 +130,10 @@ def genome_hits(col, value, genome, pathogen):
     '''Calculate the number of hits the sample has on the genome'''
 
     if not pathogen:
-        return db.mapped.find({col: value, "genome": genome},
+        return db.mapped.find({col: value, "genome": genome, "lab": lab},
                           {"_id":0, "refStart":1, "refEnd":1})
     else:
-        return db.mapped.find({col: value, "genome": genome, "isRef": None},
+        return db.mapped.find({col: value, "genome": genome, "isRef": None, "lab": lab},
                           {"_id":0, "refStart":1, "refEnd":1})
 
 
@@ -262,6 +262,7 @@ def build_project_stats(project, genome):
     stats["ownerId"] = project['_id']
     stats["geneCoverageMax"] = gene_coverage_max
     stats["pathgeneCoverageMax"] = gene_coverage_max_pathogen
+    stats["lab"] = lab
     return filter_stats(stats)
 
 
@@ -286,6 +287,7 @@ def build_sample_stats(project, sample, genome):
     stats["ownerId"] = sample['_id']
     stats["sample"] = sample['name']
     stats["sampleId"] = sample['_id']
+    stats["lab"] = lab
     return filter_stats(stats)
 
 
@@ -311,6 +313,7 @@ def build_alignment_stats(project, alignment, genome):
     stats["sampleId"] = alignment['sampleId']
     stats["alignment"] = alignment['name']
     stats["alignmentId"] = alignment['_id']
+    stats["lab"] = lab
     return filter_stats(stats)
 
 
@@ -355,7 +358,7 @@ def generate_statistics(project):
     logger.info('Calculating statistics for project: {0}'.format(project['name']))
 
     logger.debug('Remove old statistics for the project: {0}'.format(project['label']))
-    db.statistics.remove({'projectId': project['_id']})
+    db.statistics.remove({'projectId': project['_id'], 'lab': lab})
 
     samples = db.sample.find({"projectId": project['_id']})
     logger.info("Found samples: {0}".format(samples))
@@ -384,10 +387,12 @@ def update_sample_count(genome):
 def main(args):
     '''Calculate Genome Coverage Statistics'''
 
-    global db, logger, filter_bg, bg_model
+    global db, logger, filter_bg, bg_model, lab
 
     logger = args.logging.getLogger(__name__)
     db = connect(args)
+
+    lab = args.lab
 
     # gets stats for background models 
     if args.bg and len(args.projects) == 1 and args.projects[0] == 'background':
