@@ -145,7 +145,8 @@ if __name__ == '__main__':
     # Auto Create P/S
     subtract_parser.add_argument('--sample', help='Sample Name')
     subtract_parser.add_argument('--project', help='Project Label')
-    
+    subtract_parser.add_argument('--lab', help='Lab label')
+
     # Logging Options
     verbose_debug = subtract_parser.add_mutually_exclusive_group()
     verbose_debug.add_argument('-q', '--quiet', action='store_const', dest='logging', const="WARNING", default='INFO', help='set logging output to ERROR')
@@ -184,6 +185,7 @@ if __name__ == '__main__':
     # Project Select
     project = stats_parser.add_argument_group('Project Select', 'Select which project(s) to update by passing the project label(s)')
     project.add_argument('projects', nargs='+', metavar="P", help="Project Label from Database")
+    project.add_argument('--lab', help='Lab label')
     # Background
     background = stats_parser.add_mutually_exclusive_group()
     background.add_argument('-bg', action='store_true', default=False, help='Calculate stats for background models to be used within a project(s) the project label for this option should be "background"')
