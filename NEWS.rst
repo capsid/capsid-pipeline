@@ -3,7 +3,7 @@ News
 
 1.6.2
 -----
-*Release date: 16 July 2014**
+*Release date: 16 July 2014*
 
 * enforce the use of pymongo version==2.8
 
