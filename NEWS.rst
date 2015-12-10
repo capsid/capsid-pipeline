@@ -1,24 +1,26 @@
 News
 ====
 
+1.6.2
+-----
+*Release date: 16 July 2015*
 
-1.6.0
+* enforce the use of pymongo version==2.8
+* filtering of false positive virus canidates using a simulated background model 
+* filtering of phages and low confidence hits 
+
+
+1.6.1
 -----
 
 *Release date: 16 September 2014*
 
 * added taxon tables for viruses
-* gra calculations do not need readscan to be installed anymore
-* metrics are now calculated for both reads aligning to pathogen only (excluding those aligning simultaneously to the human ref (i.e digital subtraction)) and reads aligning simultaneously to both pathogen and human
+* added gra (genome relative abundance) calculations
+* metrics are now calculated for i) reads aligning to pathogen only (excluding those aligning simultaneously to the human ref (i.e digital subtraction)) and ii) reads aligning simultaneously to both pathogen and human refs
 * paired reads from the human ref pair-end BAM file are considered valid only if aligned as proper pairs
-
-1.5.0a2
------
-
 * changed the filtering approach from collapsing of FASTQ and filtering to filtering
-* added calculating genome relative abundance (gra) using third party software readscan which needs to be installed (see the /etc directory)
-* fixed the bug where RAM usage explodes when reading a xeno file during subtraction
-
+* fixed a bug to do with the RAM usage when reading a xeno file during subtraction
 
 
 1.4.3
